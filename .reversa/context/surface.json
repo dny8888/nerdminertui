@@ -1,0 +1,59 @@
+{
+  "generated_at": "2026-05-29T11:51:17Z",
+  "project_root": "/home/dny8888/workspace/github/nerdminertui",
+  "languages": [
+    { "name": "Go", "extensions": [".go"], "file_count": 0 },
+    { "name": "Markdown", "extensions": [".md"], "file_count": 2 }
+  ],
+  "primary_language": "Go",
+  "frameworks": [
+    { "name": "Bubbletea", "version": "unknown", "source": "nerdtui-spec.md" },
+    { "name": "Lipgloss", "version": "unknown", "source": "nerdtui-spec.md" },
+    { "name": "Bubbles", "version": "unknown", "source": "nerdtui-spec.md" },
+    { "name": "Viper", "version": "unknown", "source": "nerdtui-spec.md" },
+    { "name": "SQLite", "version": "unknown", "source": "nerdtui-spec.md" }
+  ],
+  "package_manager": "go modules",
+  "entry_points": [
+    { "path": "cmd/tui/main.go", "type": "app_entry" }
+  ],
+  "config_files": [
+    "internal/config/config.go"
+  ],
+  "ci_cd": [
+    "Makefile"
+  ],
+  "docker": {},
+  "database_hints": [
+    { "path": "internal/store/store.go", "type": "sqlite_store" }
+  ],
+  "test_framework": "testify/assert",
+  "test_file_count": 0,
+  "modules": [
+    "cmd/tui",
+    "internal/config",
+    "internal/model",
+    "internal/worker",
+    "internal/ui",
+    "internal/store",
+    "pkg/mining",
+    "pkg/format"
+  ],
+  "total_files": 2,
+  "organization_suggestion": {
+    "granularity": "module",
+    "rationale": "A arquitetura de pacotes do projeto especificada em nerdtui-spec.md é organizada em módulos funcionais e de domínio claros (pkg/mining, internal/store, internal/worker, internal/ui).",
+    "signals": [
+      {
+        "type": "top_level_domain_folders",
+        "evidence": [
+          "pkg/mining/",
+          "internal/store/",
+          "internal/worker/",
+          "internal/ui/"
+        ]
+      }
+    ],
+    "features": []
+  }
+}

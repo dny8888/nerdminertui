@@ -1,0 +1,10 @@
+{
+  "schema-version": 1,
+  "feature-dir": "_reversa_forward/001-tcp-pool",
+  "feature-id": "001",
+  "short-name": "tcp-pool",
+  "started-at": "2026-05-29T22:28:00Z",
+  "current-stage": "requirements",
+  "stages-completed": [],
+  "paused-features": []
+}

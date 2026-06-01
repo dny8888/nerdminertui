@@ -1,0 +1,6 @@
+{"ts":"2026-05-30T01:40:50Z","action":"T001","status":"done","files":["internal/config/config.go","internal/model/state.go","internal/ui/screens/settings.go","internal/ui/app.go","cmd/tui/main.go","internal/config/config_test.go"]}
+{"ts":"2026-05-30T01:41:08Z","action":"T002","status":"done","files":["internal/worker/stratum.go"]}
+{"ts":"2026-05-30T01:44:03Z","action":"T003","status":"done","files":["internal/worker/fetcher.go"]}
+{"ts":"2026-05-30T01:44:03Z","action":"T004","status":"done","files":["internal/worker/miner.go"]}
+{"ts":"2026-05-30T01:44:03Z","action":"T005","status":"done","files":["cmd/tui/main.go"]}
+{"ts":"2026-05-30T01:44:03Z","action":"T006","status":"done","files":["internal/worker/messages.go","internal/model/state.go","internal/ui/app.go","internal/ui/components/statusbar.go"]}

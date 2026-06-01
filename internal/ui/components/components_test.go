@@ -1,0 +1,27 @@
+package components
+
+import (
+	"testing"
+
+	"github.com/nerdminertui/nerdtui/internal/model"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestRenderStatusBar(t *testing.T) {
+	state := model.AppState{
+		SharesFound: 5,
+		Screen:      0,
+	}
+	out := RenderStatusBar(state, 80)
+	assert.Contains(t, out, "0s | Shares: 5")
+	assert.Contains(t, out, "Screen: 1/4")
+}
+
+func TestRenderCPUBar(t *testing.T) {
+	state := model.AppState{
+		CPUTarget: 0.5,
+	}
+	out := RenderCPUBar(state, 80)
+	assert.Contains(t, out, "CPU [")
+	assert.Contains(t, out, "50%")
+}
