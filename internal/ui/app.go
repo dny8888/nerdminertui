@@ -45,6 +45,9 @@ func NewAppModel(initialState model.AppState, throttleCh chan<- float64, configU
 	chart.XLabelFormatter = func(i int, v float64) string {
 		return time.Unix(int64(v), 0).Local().Format("15:04:05")
 	}
+	chart.YLabelFormatter = func(i int, v float64) string {
+		return fmt.Sprintf("%.1f kH/s", v/1000.0)
+	}
 	
 	return AppModel{
 		state:          initialState,
@@ -77,10 +80,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.WorkerName = m.settings.Inputs[1].Value()
 			m.state.PoolAddress = m.settings.Inputs[2].Value()
 			_, _ = fmt.Sscanf(m.settings.Inputs[3].Value(), "%d", &m.state.PoolPort)
-			m.state.MockMining = m.settings.Inputs[4].Value() == "true"
+			m.state.MockMining = m.settings.MockMining
 			
 			var cpuTargetInt int
-			if _, err := fmt.Sscanf(m.settings.Inputs[5].Value(), "%d", &cpuTargetInt); err == nil {
+			if _, err := fmt.Sscanf(m.settings.Inputs[4].Value(), "%d", &cpuTargetInt); err == nil {
 				if cpuTargetInt >= 5 && cpuTargetInt <= 75 {
 					m.state.CPUTarget = float64(cpuTargetInt) / 100.0
 				}
@@ -89,26 +92,33 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Notify main loop to save config and restart worker
 			cfgCopy := m.state
 			return m, func() tea.Msg { return SaveConfigMsg{Config: &cfgCopy} }
-		case "up", "down":
+		case "up", "down", "left", "right":
 			if m.state.Screen == model.ScreenSettings {
 				s := msg.String()
 				
 				// Handle focus switching
-				if s == "up" {
+				if s == "up" || s == "left" {
 					m.settings.FocusIndex--
 				} else {
 					m.settings.FocusIndex++
 				}
 
-				if m.settings.FocusIndex > len(m.settings.Inputs)-1 {
+				if m.settings.FocusIndex > 5 {
 					m.settings.FocusIndex = 0
 				} else if m.settings.FocusIndex < 0 {
-					m.settings.FocusIndex = len(m.settings.Inputs) - 1
+					m.settings.FocusIndex = 5
 				}
 
 				var cmds []tea.Cmd
-				for i := 0; i <= len(m.settings.Inputs)-1; i++ {
-					if i == m.settings.FocusIndex {
+				for i := range m.settings.Inputs {
+					isFocused := false
+					if i < 4 && m.settings.FocusIndex == i {
+						isFocused = true
+					} else if i == 4 && m.settings.FocusIndex == 5 {
+						isFocused = true
+					}
+
+					if isFocused {
 						cmds = append(cmds, m.settings.Inputs[i].Focus())
 						m.settings.Inputs[i].PromptStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 						m.settings.Inputs[i].TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
@@ -120,7 +130,11 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, tea.Batch(cmds...)
 			}
-		case "tab", "right":
+		case " ", "enter":
+			if m.state.Screen == model.ScreenSettings && m.settings.FocusIndex == 4 {
+				m.settings.MockMining = !m.settings.MockMining
+			}
+		case "tab":
 			m.state = m.state.NextScreen()
 		case "+", "=":
 			m.state = m.state.WithCPUTarget(0.05)
@@ -159,6 +173,29 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.hashChart.Push(timeserieslinechart.TimePoint{Time: now, Value: msg.HPS})
 		m.hashChart.SetTimeRange(now.Add(-30*time.Second), now)
 		m.hashChart.SetViewTimeRange(now.Add(-30*time.Second), now)
+		
+		// Set Y axis range based on last 30s
+		minVal := msg.HPS
+		maxVal := msg.HPS
+		for i := 0; i < model.HashHistoryLen; i++ {
+			val := m.state.HashRateHistory[i]
+			if val > 0 { // Ignore uninitialized zeros
+				if val < minVal {
+					minVal = val
+				}
+				if val > maxVal {
+					maxVal = val
+				}
+			}
+		}
+		
+		chart := m.hashChart
+		chart.AutoMinY = false
+		chart.AutoMaxY = false
+		chart.SetYRange(minVal * 0.85, maxVal * 1.15)
+		chart.SetViewYRange(minVal * 0.85, maxVal * 1.15)
+		m.hashChart = chart
+
 		m.hashChart.DrawBraille()
 
 	case worker.ShareFoundMsg:
@@ -208,11 +245,9 @@ func (m AppModel) View() string {
 	case 0:
 		content = screens.RenderDashboard(m.state, m.hashChart.View(), m.width, m.height-1)
 	case 1:
-		content = screens.RenderClock(m.state, m.width, m.height-1)
-	case 2:
 		content = screens.RenderGlobalStats(m.state, m.width, m.height-1)
-	case 3:
-		content = screens.RenderSettings(m.state, m.settings.Inputs, m.width, m.height-1)
+	case 2:
+		content = screens.RenderSettings(m.state, m.settings, m.width, m.height-1)
 	default:
 		content = "Unknown Screen"
 	}

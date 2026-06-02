@@ -9,13 +9,12 @@ type ScreenID uint8
 
 const (
 	ScreenDashboard ScreenID = 0
-	ScreenClock     ScreenID = 1
-	ScreenGlobalStats ScreenID = 2
-	ScreenSettings    ScreenID = 3
+	ScreenGlobalStats ScreenID = 1
+	ScreenSettings    ScreenID = 2
 )
 
 // NumScreens is the total number of screens.
-const NumScreens = 4
+const NumScreens = 3
 
 // CPU throttle constants.
 const (
