@@ -17,6 +17,8 @@ import (
 	"github.com/nerdminertui/nerdtui/pkg/mining"
 )
 
+var version = "dev"
+
 func main() {
 	configPath := flag.String("config", "", "Path to config file")
 	mockMode := flag.Bool("mock", false, "Enable mock mining mode")

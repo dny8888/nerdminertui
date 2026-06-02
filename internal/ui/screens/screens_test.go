@@ -14,7 +14,7 @@ func TestRenderDashboard(t *testing.T) {
 	}
 	state.HashRateHistory[model.HashHistoryLen-1] = 1000.0
 
-	out := RenderDashboard(state, "", 80, 24)
+	out := RenderDashboard(state, "", "H/s", 80, 24)
 	assert.Contains(t, out, "DASHBOARD")
 	assert.Contains(t, out, "hash rate")
 }
