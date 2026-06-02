@@ -16,14 +16,9 @@ func TestRenderDashboard(t *testing.T) {
 
 	out := RenderDashboard(state, "", 80, 24)
 	assert.Contains(t, out, "DASHBOARD")
-	assert.Contains(t, out, "Hash Rate")
+	assert.Contains(t, out, "hash rate")
 }
 
-func TestRenderClock(t *testing.T) {
-	state := model.AppState{}
-	out := RenderClock(state, 80, 24)
-	assert.Contains(t, out, ":") // simple clock check
-}
 
 func TestRenderGlobalStats(t *testing.T) {
 	state := model.AppState{BlockHeight: 123456}

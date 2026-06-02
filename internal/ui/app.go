@@ -33,8 +33,24 @@ type AppModel struct {
 	configUpdateCh chan<- *model.AppState
 	settings       screens.SettingsModel
 	hashChart      timeserieslinechart.Model
+	graphUnit      string
+	graphScale     float64
 	width          int
 	height         int
+}
+
+func formatThreeDigits(v float64) string {
+	if v < 0 {
+		v = 0
+	}
+	if v == 0 {
+		return "0.00"
+	} else if v < 10 {
+		return fmt.Sprintf("%.2f", v)
+	} else if v < 100 {
+		return fmt.Sprintf("%.1f", v)
+	}
+	return fmt.Sprintf("%.0f", v)
 }
 
 // NewAppModel initializes a new AppModel.
@@ -45,8 +61,9 @@ func NewAppModel(initialState model.AppState, throttleCh chan<- float64, configU
 	chart.XLabelFormatter = func(i int, v float64) string {
 		return time.Unix(int64(v), 0).Local().Format("15:04:05")
 	}
+	// Initial placeholder formatter
 	chart.YLabelFormatter = func(i int, v float64) string {
-		return fmt.Sprintf("%.1f kH/s", v/1000.0)
+		return formatThreeDigits(v)
 	}
 	
 	return AppModel{
@@ -55,6 +72,8 @@ func NewAppModel(initialState model.AppState, throttleCh chan<- float64, configU
 		configUpdateCh: configUpdateCh,
 		settings:       screens.NewSettingsModel(initialState),
 		hashChart:      chart,
+		graphScale:     1.0,
+		graphUnit:      "H/s",
 	}
 }
 
@@ -168,9 +187,13 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case worker.HashRateMsg:
 		now := time.Now()
-		m.state = m.state.WithHashRate(msg.HPS)
+		hps := msg.HPS
+		if !m.state.PoolConnected && !m.state.MockMining {
+			hps = 0
+		}
+		m.state = m.state.WithHashRate(hps)
 		m.state.CPUActual = msg.CPUActual
-		m.hashChart.Push(timeserieslinechart.TimePoint{Time: now, Value: msg.HPS})
+		m.hashChart.Push(timeserieslinechart.TimePoint{Time: now, Value: hps})
 		m.hashChart.SetTimeRange(now.Add(-30*time.Second), now)
 		m.hashChart.SetViewTimeRange(now.Add(-30*time.Second), now)
 		
@@ -188,10 +211,34 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+
+		// Update graph unit dynamically
+		m.graphScale = 1.0
+		m.graphUnit = "H/s"
+		if maxVal >= 1e12 {
+			m.graphScale = 1e12
+			m.graphUnit = "TH/s"
+		} else if maxVal >= 1e9 {
+			m.graphScale = 1e9
+			m.graphUnit = "GH/s"
+		} else if maxVal >= 1e6 {
+			m.graphScale = 1e6
+			m.graphUnit = "MH/s"
+		} else if maxVal >= 1e3 {
+			m.graphScale = 1e3
+			m.graphUnit = "kH/s"
+		}
 		
 		chart := m.hashChart
 		chart.AutoMinY = false
 		chart.AutoMaxY = false
+		
+		// Set dynamic formatter to apply the current scale
+		currentScale := m.graphScale
+		chart.YLabelFormatter = func(i int, v float64) string {
+			return formatThreeDigits(v / currentScale)
+		}
+		
 		chart.SetYRange(minVal * 0.85, maxVal * 1.15)
 		chart.SetViewYRange(minVal * 0.85, maxVal * 1.15)
 		m.hashChart = chart
@@ -204,7 +251,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case worker.PoolStatsMsg:
-		m.state.BlockHeight = uint32(msg.GlobalHashRate)
+		m.state.NetworkHashRate = msg.GlobalHashRate
+		m.state.NetworkDifficulty = msg.NetworkDifficulty
+		m.state.BlockHeight = uint32(msg.BlockHeight)
 
 	case worker.MinerErrorMsg:
 		// Ignoring for now or handle appropriately
@@ -212,8 +261,16 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Ignoring or handle
 	case worker.ConnectionStatusMsg:
 		m.state.ConnectionStatus = msg.Status
+		m.state.PoolConnected = (msg.Status == "Conectado")
 	case SaveConfigMsg:
 		msg.Config.ConfigValid = true
+		if msg.Config.MockMining {
+			msg.Config.PoolConnected = true
+			msg.Config.ConnectionStatus = "Mock"
+		} else {
+			msg.Config.PoolConnected = false
+			msg.Config.ConnectionStatus = "Desconectado"
+		}
 		m.state = *msg.Config
 		
 		// Use a goroutine to not block the UI thread
@@ -243,7 +300,7 @@ func (m AppModel) View() string {
 	var content string
 	switch m.state.Screen {
 	case 0:
-		content = screens.RenderDashboard(m.state, m.hashChart.View(), m.width, m.height-1)
+		content = screens.RenderDashboard(m.state, m.hashChart.View(), m.graphUnit, m.width, m.height-2)
 	case 1:
 		content = screens.RenderGlobalStats(m.state, m.width, m.height-1)
 	case 2:

@@ -9,8 +9,7 @@ import (
 	"github.com/nerdminertui/nerdtui/pkg/format"
 )
 
-// RenderDashboard renders Screen 0: the main hashing dashboard.
-func RenderDashboard(state model.AppState, chartView string, width, height int) string {
+func RenderDashboard(state model.AppState, chartView string, currentUnit string, width, height int) string {
 	var b strings.Builder
 
 	b.WriteString(components.RenderHeader(state, "DASHBOARD", width))
@@ -48,6 +47,9 @@ func RenderDashboard(state model.AppState, chartView string, width, height int) 
 	
 	b.WriteString(components.RenderCPUBar(state, width))
 	b.WriteString("\n\n")
+
+	// Print the unit right above the graph, like a physics graph Y-axis
+	b.WriteString(components.StyleLabel.Render(fmt.Sprintf("(%s)", currentUnit)) + "\n")
 
 	// Render the ntcharts timeseries graph
 	// Add borders to the graph

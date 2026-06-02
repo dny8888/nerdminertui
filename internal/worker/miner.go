@@ -2,6 +2,9 @@ package worker
 
 import (
 	"context"
+	"math/rand"
+	"runtime"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -34,87 +37,131 @@ func NewMinerWorker(client PoolClient, initialCPUTarget float64, initialJob mini
 
 // Run executes the hashing loop. It blocks until the context is cancelled.
 func (w *MinerWorker) Run(ctx context.Context) {
-	const BatchSize = 50000
+	numCPU := runtime.NumCPU()
+	if numCPU < 1 {
+		numCPU = 1
+	}
+
+	type localJob struct {
+		mining.Job
+		StartNonce uint32
+	}
+	var currentJob atomic.Value
+	
+	j, ok := w.job.Load().(mining.Job)
+	if !ok {
+		j = mining.Job{}
+	}
+	currentJob.Store(localJob{Job: j, StartNonce: rand.Uint32()})
+
+	var totalHashes atomic.Uint64
+	var totalWorkTime atomic.Int64
+	
+	var wg sync.WaitGroup
+	wg.Add(numCPU)
+	
+	for i := 0; i < numCPU; i++ {
+		go func(workerID int) {
+			defer wg.Done()
+			
+			const BatchSize = 10000
+			
+			var lastJobID string
+			var hashState *mining.MinerHashState
+			var currentNonce uint32
+			
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
+				
+				start := time.Now()
+				lj := currentJob.Load().(localJob)
+				
+				if lj.JobID == "" {
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+				
+				if lj.JobID != lastJobID {
+					lastJobID = lj.JobID
+					hashState = mining.NewMinerHashState(lj.Header)
+					currentNonce = lj.StartNonce + uint32(workerID)
+				}
+				
+				cpuTarget := w.cpuTarget.Load().(float64)
+				
+				// Perform batch
+				for b := 0; b < BatchSize; b++ {
+					hash := hashState.HashNonce(currentNonce)
+					if mining.MeetsTarget(hash, lj.Target) {
+						go func(n uint32, h [32]byte) {
+							submitCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+							defer cancel()
+							accepted, err := w.client.SubmitShare(submitCtx, n, h)
+							if err != nil {
+								select {
+								case w.outCh <- PoolErrorMsg{Err: err}:
+								case <-ctx.Done():
+								}
+							} else {
+								select {
+								case w.outCh <- ShareFoundMsg{Accepted: accepted}:
+								case <-ctx.Done():
+								}
+							}
+						}(currentNonce, hash)
+					}
+					currentNonce += uint32(numCPU) // Stride by number of CPUs
+				}
+				
+				workDur := time.Since(start)
+				totalHashes.Add(BatchSize)
+				totalWorkTime.Add(int64(workDur))
+				
+				if cpuTarget < 0.05 {
+					cpuTarget = 0.05
+				} else if cpuTarget > 1.0 {
+					cpuTarget = 1.0
+				}
+				
+				if cpuTarget < 1.0 {
+					sleepDur := time.Duration(float64(workDur) * (1.0 - cpuTarget) / cpuTarget)
+					time.Sleep(sleepDur)
+				}
+			}
+		}(i)
+	}
 
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	var currentNonce uint32
-	var intervalHashes uint64
-	var intervalWorkTime time.Duration
-	var intervalSleepTime time.Duration
-
 	for {
 		select {
 		case <-ctx.Done():
+			wg.Wait()
 			return
 		case target := <-w.throttleCh:
 			w.cpuTarget.Store(target)
 		case newJob := <-w.jobCh:
-			w.job.Store(newJob)
+			currentJob.Store(localJob{Job: newJob, StartNonce: rand.Uint32()})
 		case <-ticker.C:
-			// Emit metrics
-			if intervalWorkTime+intervalSleepTime > 0 {
-				hps := float64(intervalHashes)
-				cpuActual := float64(intervalWorkTime) / float64(intervalWorkTime+intervalSleepTime)
+			hashes := totalHashes.Swap(0)
+			wt := totalWorkTime.Swap(0)
+			
+			if hashes > 0 {
+				hps := float64(hashes)
+				cpuActual := (float64(wt) / float64(time.Second)) / float64(numCPU)
+				if cpuActual > 1.0 {
+					cpuActual = 1.0
+				}
+				
 				select {
 				case w.outCh <- HashRateMsg{HPS: hps, CPUActual: cpuActual}:
 				case <-ctx.Done():
-					return
 				}
-			}
-			intervalHashes = 0
-			intervalWorkTime = 0
-			intervalSleepTime = 0
-		default:
-			start := time.Now()
-
-			j, ok := w.job.Load().(mining.Job)
-			if !ok {
-				// Fallback generic job if cast fails
-				j = mining.Job{}
-			}
-
-			// Perform a batch of hashes
-			for i := 0; i < BatchSize; i++ {
-				hash := mining.HashHeader(j.Header, currentNonce)
-				if mining.MeetsTarget(hash, j.Target) {
-					// 10s timeout per requirement for Share submission
-					go func(n uint32, h [32]byte) {
-						submitCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-						defer cancel()
-						accepted, err := w.client.SubmitShare(submitCtx, n, h)
-						if err != nil {
-							select {
-							case w.outCh <- PoolErrorMsg{Err: err}:
-							case <-ctx.Done():
-							}
-						} else {
-							select {
-							case w.outCh <- ShareFoundMsg{Accepted: accepted}:
-							case <-ctx.Done():
-							}
-						}
-					}(currentNonce, hash)
-				}
-				currentNonce++
-			}
-
-			workDur := time.Since(start)
-			intervalHashes += BatchSize
-			intervalWorkTime += workDur
-
-			cpuTarget := w.cpuTarget.Load().(float64)
-			if cpuTarget < 0.05 {
-				cpuTarget = 0.05
-			} else if cpuTarget > 1.0 {
-				cpuTarget = 1.0
-			}
-
-			if cpuTarget < 1.0 {
-				sleepDur := time.Duration(float64(workDur) * (1.0 - cpuTarget) / cpuTarget)
-				time.Sleep(sleepDur)
-				intervalSleepTime += sleepDur
 			}
 		}
 	}

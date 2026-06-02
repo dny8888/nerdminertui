@@ -56,16 +56,23 @@ func Load() (*Config, error) {
 	if cfgDir == "" {
 		cfgDir, _ = ExpandPath("~/.nerdtui")
 	}
+	var errRead error
 	if cfgDir != "" {
 		v.AddConfigPath(cfgDir)
 		v.SetConfigName("config")
 		v.SetConfigType("yaml")
-		_ = v.ReadInConfig() // ignore error if it doesn't exist
+		errRead = v.ReadInConfig() // capture error to know if config was loaded
 	}
 
 	var c Config
 	if err := v.Unmarshal(&c); err != nil {
 		return nil, err
+	}
+
+	// If config was successfully read from a file and we have a BTCAddress,
+	// force mock_mining to false to start real mining immediately.
+	if errRead == nil && c.BTCAddress != "" {
+		c.MockMining = false
 	}
 
 	expandedPath, err := ExpandPath(c.StorePath)

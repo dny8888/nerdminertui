@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -40,4 +41,7 @@ func TestMain_StartsAndQuits_NoGoroutineLeak(t *testing.T) {
 
 	// Since main() does not call os.Exit on success, it will simply return when the program finishes.
 	main()
+
+	// Close any idle connections left by MempoolClient
+	http.DefaultClient.CloseIdleConnections()
 }

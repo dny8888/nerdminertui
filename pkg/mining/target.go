@@ -7,11 +7,15 @@ import (
 // MeetsTarget compares a hash against a target byte-by-byte (Big-Endian).
 // A hash meets the target if its numerical value is strictly less than the target.
 func MeetsTarget(hash, target [32]byte) bool {
+	// The block hash (result of SHA256d) has its most significant byte at the end (hash[31])
+	// when treated as a 256-bit integer, while the target array is strictly Big-Endian
+	// (target[0] is the most significant byte).
+	// We compare hash[31-i] with target[i].
 	for i := 0; i < 32; i++ {
-		if hash[i] < target[i] {
+		if hash[31-i] < target[i] {
 			return true
 		}
-		if hash[i] > target[i] {
+		if hash[31-i] > target[i] {
 			return false
 		}
 	}

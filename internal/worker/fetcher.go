@@ -5,7 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,8 +30,9 @@ type MockPoolClient struct{}
 // FetchStats returns simulated global statistics.
 func (c *MockPoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
 	return PoolStatsMsg{
-		GlobalHashRate: 4.5e15,
-		ActiveMiners:   12500,
+		GlobalHashRate:    4.5e18,
+		NetworkDifficulty: 88.1e12,
+		BlockHeight:       850000,
 	}, nil
 }
 
@@ -41,23 +46,57 @@ func (c *MockPoolClient) Run(ctx context.Context) {
 	<-ctx.Done()
 }
 
-// HTTPPoolClient implements REST polling for global stats.
-type HTTPPoolClient struct {
-	URL string
+// MempoolClient implements REST polling for global network stats via mempool.space.
+type MempoolClient struct {
+	BaseURL string
 }
 
-// FetchStats retrieves global stats over HTTP (stub).
-func (c *HTTPPoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
-	return PoolStatsMsg{}, nil
+// FetchStats retrieves global stats over HTTP from mempool.space.
+func (c *MempoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
+	var stats PoolStatsMsg
+
+	// Create a custom HTTP client with timeout
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// 1. Fetch Block Height
+	reqHeight, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/blocks/tip/height", nil)
+	if err == nil {
+		if resp, err := client.Do(reqHeight); err == nil {
+			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			heightStr := strings.TrimSpace(string(body))
+			if h, err := strconv.Atoi(heightStr); err == nil {
+				stats.BlockHeight = h
+			}
+		}
+	}
+
+	// 2. Fetch Hashrate & Difficulty
+	reqHashrate, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/v1/mining/hashrate/3d", nil)
+	if err == nil {
+		if resp, err := client.Do(reqHashrate); err == nil {
+			defer resp.Body.Close()
+			var hrData struct {
+				CurrentHashrate   float64 `json:"currentHashrate"`
+				CurrentDifficulty float64 `json:"currentDifficulty"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&hrData); err == nil {
+				stats.GlobalHashRate = hrData.CurrentHashrate
+				stats.NetworkDifficulty = hrData.CurrentDifficulty
+			}
+		}
+	}
+
+	return stats, nil
 }
 
 // SubmitShare is not implemented for HTTP client.
-func (c *HTTPPoolClient) SubmitShare(ctx context.Context, nonce uint32, hash [32]byte) (bool, error) {
+func (c *MempoolClient) SubmitShare(ctx context.Context, nonce uint32, hash [32]byte) (bool, error) {
 	return false, nil
 }
 
 // Run is a no-op for HTTP client.
-func (c *HTTPPoolClient) Run(ctx context.Context) {
+func (c *MempoolClient) Run(ctx context.Context) {
 	<-ctx.Done()
 }
 
@@ -78,6 +117,8 @@ type StratumPoolClient struct {
 	extranonce2     uint32
 	difficulty      float64
 	lastJob         *mining.Job
+	pendingRequests map[int]chan JSONRPCResponse
+	lastRxTime      time.Time
 }
 
 // NewStratumClient initializes a new Stratum client.
@@ -126,6 +167,7 @@ func (c *StratumPoolClient) connectAndLoop(ctx context.Context) error {
 	
 	c.mu.Lock()
 	c.conn = conn
+	c.lastRxTime = time.Now()
 	c.mu.Unlock()
 	
 	defer func() {
@@ -139,7 +181,6 @@ func (c *StratumPoolClient) connectAndLoop(ctx context.Context) error {
 
 	c.OutCh <- ConnectionStatusMsg{Status: "Conectado"}
 
-	// Start handshake
 	if err := c.sendSubscribe(); err != nil {
 		return err
 	}
@@ -147,11 +188,51 @@ func (c *StratumPoolClient) connectAndLoop(ctx context.Context) error {
 		return err
 	}
 
-	// Read loop
+	// Keep-alive watchdog
+	watchdogCtx, cancelWatchdog := context.WithCancel(ctx)
+	defer cancelWatchdog()
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-watchdogCtx.Done():
+				return
+			case <-ticker.C:
+				c.mu.Lock()
+				last := c.lastRxTime
+				c.mu.Unlock()
+				
+				if time.Since(last) > 3*time.Minute {
+					// Pool has been silent for 3 minutes, send a ping
+					_, err := c.sendAndWait("mining.suggest_difficulty", []interface{}{0.1}, 10*time.Second)
+					if err != nil {
+						// Connection is dead, close it to break the scanner loop
+						c.mu.Lock()
+						if c.conn != nil {
+							c.conn.Close()
+						}
+						c.mu.Unlock()
+						return
+					}
+				}
+			}
+		}
+	}()
+
 	scanner := bufio.NewScanner(conn)
-	for scanner.Scan() {
+	for {
+		// Set a hard deadline to prevent eternal blocking
+		conn.SetReadDeadline(time.Now().Add(10 * time.Minute))
+		if !scanner.Scan() {
+			break
+		}
+		
+		c.mu.Lock()
+		c.lastRxTime = time.Now()
+		c.mu.Unlock()
+		
 		line := scanner.Bytes()
-		// Determine if notification or response
 		var notif JSONRPCNotification
 		if err := json.Unmarshal(line, &notif); err == nil && notif.Method != "" {
 			c.handleNotification(notif)
@@ -169,6 +250,49 @@ func (c *StratumPoolClient) nextID() int {
 	// MUST be called while c.mu is already held.
 	c.reqID++
 	return c.reqID
+}
+
+func (c *StratumPoolClient) sendAndWait(method string, params []interface{}, timeout time.Duration) (JSONRPCResponse, error) {
+	c.mu.Lock()
+	if c.conn == nil {
+		c.mu.Unlock()
+		return JSONRPCResponse{}, fmt.Errorf("not connected")
+	}
+	id := c.reqID + 1
+	c.reqID = id
+	
+	respCh := make(chan JSONRPCResponse, 1)
+	if c.pendingRequests == nil {
+		c.pendingRequests = make(map[int]chan JSONRPCResponse)
+	}
+	c.pendingRequests[id] = respCh
+	
+	req := JSONRPCRequest{
+		ID:     id,
+		Method: method,
+		Params: params,
+	}
+	data, _ := json.Marshal(req)
+	data = append(data, '\n')
+	_, err := c.conn.Write(data)
+	c.mu.Unlock()
+	
+	if err != nil {
+		c.mu.Lock()
+		delete(c.pendingRequests, id)
+		c.mu.Unlock()
+		return JSONRPCResponse{}, err
+	}
+	
+	select {
+	case resp := <-respCh:
+		return resp, nil
+	case <-time.After(timeout):
+		c.mu.Lock()
+		delete(c.pendingRequests, id)
+		c.mu.Unlock()
+		return JSONRPCResponse{}, fmt.Errorf("timeout waiting for response")
+	}
 }
 
 func (c *StratumPoolClient) send(method string, params []interface{}) error {
@@ -259,6 +383,13 @@ func (c *StratumPoolClient) handleNotification(notif JSONRPCNotification) {
 }
 
 func (c *StratumPoolClient) handleResponse(resp JSONRPCResponse) {
+	c.mu.Lock()
+	if ch, ok := c.pendingRequests[resp.ID]; ok {
+		ch <- resp
+		delete(c.pendingRequests, resp.ID)
+	}
+	c.mu.Unlock()
+
 	// Parse extranonce1 from subscribe response
 	if resp.Result != nil {
 		var resultArr []interface{}
@@ -296,25 +427,18 @@ func (c *StratumPoolClient) SubmitShare(ctx context.Context, nonce uint32, hash 
 		return false, fmt.Errorf("no active job to submit")
 	}
 
-	// nonce is encoded as LittleEndian in block but stratum requires BigEndian hex string (usually)
-	// Wait, actually Stratum submit expects the exact nonce hex that was placed in the header, or reversed?
-	// The standard Stratum nonce string is the hex representation of the 4 bytes.
-	// Since nonce is a uint32, we can just format it as 8 hex chars. 
-	// NerdMiner/cgminer uses LittleEndian in the block header.
-	// In Stratum submit, it's submitted as hex of the little-endian bytes, or sometimes big-endian depending on pool.
-	// Most pools expect big-endian string of the uint32:
-	// Wait, some expect little-endian hex. We will use the direct %08x (which is big-endian representation).
-	// Actually, cgminer submits little-endian hex or big-endian hex?
-	// Let's use little-endian hex as that's what's physically in the header.
-	// nonceHex := hex.EncodeToString(nonceBytes) (where nonceBytes is LittleEndian).
-	// Let's stick to standard `sprintf("%08x", nonce)` for now, which sends the integer as big-endian hex.
-	// Wait, standard Stratum `nonce` is the hex string of the little-endian bytes.
-	// e.g. if nonce is 0x12345678, in header it's 78 56 34 12, so hex string is "78563412".
 	nonceHexLE := fmt.Sprintf("%02x%02x%02x%02x", byte(nonce), byte(nonce>>8), byte(nonce>>16), byte(nonce>>24))
 
-	err := c.send("mining.submit", []interface{}{worker, job.JobID, job.Extranonce2Hex, job.NtimeHex, nonceHexLE})
+	resp, err := c.sendAndWait("mining.submit", []interface{}{worker, job.JobID, job.Extranonce2Hex, job.NtimeHex, nonceHexLE}, 10*time.Second)
 	if err != nil {
 		return false, err
 	}
-	return true, nil
+	if resp.Error != nil {
+		return false, fmt.Errorf("pool rejected share: %v", resp.Error)
+	}
+	var resultBool bool
+	if err := json.Unmarshal(resp.Result, &resultBool); err == nil && resultBool {
+		return true, nil
+	}
+	return false, fmt.Errorf("pool returned unknown result: %s", string(resp.Result))
 }

@@ -17,8 +17,12 @@ GOLANGCI_LINT := go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.6
 build:
 	CGO_ENABLED=$(CGO) $(GO) build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY) ./cmd/tui
 
-## run: build and run with --mock flag
+## run: build and run without --mock flag
 run: build
+	./$(BUILD_DIR)/$(BINARY)
+
+## mock: build and run with --mock flag
+mock: build
 	./$(BUILD_DIR)/$(BINARY) --mock
 
 ## test: run all tests

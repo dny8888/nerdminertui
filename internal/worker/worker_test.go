@@ -3,7 +3,10 @@ package worker
 import (
 	"bufio"
 	"context"
+	"encoding/json"
+	"fmt"
 	"net"
+	"net/http"
 	"testing"
 	"time"
 
@@ -36,6 +39,7 @@ func TestMinerWorker_Run(t *testing.T) {
 	job := mining.Job{
 		Header: make([]byte, 80),
 		Target: target,
+		JobID:  "test-job-1",
 	}
 
 	worker := NewMinerWorker(client, 0.5, job, outCh, throttleCh, jobCh)
@@ -79,7 +83,7 @@ func TestMinerWorker_ThrottleUpdate(t *testing.T) {
 	throttleCh := make(chan float64, 10)
 	jobCh := make(chan mining.Job, 10)
 	client := &MockPoolClient{}
-	job := mining.Job{}
+	job := mining.Job{JobID: "test-job-2", Header: make([]byte, 80)}
 	worker := NewMinerWorker(client, 0.5, job, outCh, throttleCh, jobCh)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -109,18 +113,19 @@ func TestPollCmd(t *testing.T) {
 	msg := cmd()
 	stats, ok := msg.(PoolStatsMsg)
 	assert.True(t, ok)
-	assert.Equal(t, 12500, stats.ActiveMiners)
+	assert.Equal(t, 850000, stats.BlockHeight)
 }
 
 func TestClientsStub(t *testing.T) {
 	ctx := context.Background()
 
-	// HTTP
-	httpC := &HTTPPoolClient{}
+	// MempoolClient
+	httpC := &MempoolClient{BaseURL: "https://mempool.space"}
 	_, err := httpC.FetchStats(ctx)
 	assert.NoError(t, err)
 	_, err = httpC.SubmitShare(ctx, 0, [32]byte{})
 	assert.NoError(t, err)
+	http.DefaultClient.CloseIdleConnections()
 
 	// Stratum
 	stratC := &StratumPoolClient{}
@@ -244,7 +249,14 @@ func TestStratumPoolClient_SubmitShareNonceFormat(t *testing.T) {
 		defer conn.Close()
 		scanner := bufio.NewScanner(conn)
 		if scanner.Scan() {
-			received <- scanner.Text()
+			reqLine := scanner.Text()
+			received <- reqLine
+			
+			// Parse ID to send back a valid response
+			var req JSONRPCRequest
+			json.Unmarshal([]byte(reqLine), &req)
+			resp := fmt.Sprintf(`{"id": %d, "result": true, "error": null}`+"\n", req.ID)
+			conn.Write([]byte(resp))
 		}
 	}()
 
@@ -261,6 +273,16 @@ func TestStratumPoolClient_SubmitShareNonceFormat(t *testing.T) {
 			NtimeHex:       "5bfc2e56",
 		},
 	}
+	
+	// Start a read loop for the client to process responses
+	go func() {
+		scanner := bufio.NewScanner(conn)
+		for scanner.Scan() {
+			var resp JSONRPCResponse
+			json.Unmarshal(scanner.Bytes(), &resp)
+			client.handleResponse(resp)
+		}
+	}()
 
 	_, err = client.SubmitShare(context.Background(), 0x12345678, [32]byte{})
 	require.NoError(t, err)

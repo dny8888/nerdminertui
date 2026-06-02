@@ -33,9 +33,6 @@ func TestNextScreen_Cyclic(t *testing.T) {
 	state := AppState{Screen: ScreenDashboard}
 
 	state = state.NextScreen()
-	assert.Equal(t, ScreenClock, state.Screen)
-
-	state = state.NextScreen()
 	assert.Equal(t, ScreenGlobalStats, state.Screen)
 
 	state = state.NextScreen()

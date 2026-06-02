@@ -40,21 +40,28 @@ func TestMeetsTarget(t *testing.T) {
 	} // rest is 0
 
 	t.Run("hash is strictly less", func(t *testing.T) {
-		hash := [32]byte{
-			0x00, 0x00, 0xFE, 0xFF,
-		}
+		var hash [32]byte
+		hash[31] = 0x00
+		hash[30] = 0x00
+		hash[29] = 0xFE
+		hash[28] = 0xFF
 		assert.True(t, MeetsTarget(hash, target))
 	})
 
 	t.Run("hash is exactly equal", func(t *testing.T) {
-		hash := target
+		var hash [32]byte
+		for i := 0; i < 32; i++ {
+			hash[31-i] = target[i]
+		}
 		assert.False(t, MeetsTarget(hash, target))
 	})
 
 	t.Run("hash is greater", func(t *testing.T) {
-		hash := [32]byte{
-			0x00, 0x01, 0x00, 0x00,
-		}
+		var hash [32]byte
+		hash[31] = 0x00
+		hash[30] = 0x01
+		hash[29] = 0x00
+		hash[28] = 0x00
 		assert.False(t, MeetsTarget(hash, target))
 	})
 	

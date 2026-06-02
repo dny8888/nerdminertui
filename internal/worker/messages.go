@@ -13,8 +13,9 @@ type ShareFoundMsg struct {
 
 // PoolStatsMsg is emitted by the PoolClient after fetching global network statistics.
 type PoolStatsMsg struct {
-	GlobalHashRate float64
-	ActiveMiners   int
+	GlobalHashRate    float64
+	NetworkDifficulty float64
+	BlockHeight       int
 }
 
 // MinerErrorMsg is emitted when an internal error occurs within the MinerWorker.

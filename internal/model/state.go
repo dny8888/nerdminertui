@@ -35,6 +35,8 @@ type AppState struct {
 	SharesFound     uint64
 	BestDifficulty  float64
 	BlockHeight     uint32
+	NetworkHashRate float64
+	NetworkDifficulty float64
 	CPUTarget       float64
 	CPUActual       float64
 	ConnectionStatus string

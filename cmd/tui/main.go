@@ -101,6 +101,14 @@ func main() {
 		ConfigValid:     configValid,
 	}
 
+	if cfg.MockMining {
+		initialState.PoolConnected = true
+		initialState.ConnectionStatus = "Mock"
+	} else {
+		initialState.PoolConnected = false
+		initialState.ConnectionStatus = "Desconectado"
+	}
+
 	if !configValid {
 		initialState.Screen = model.ScreenSettings
 	}
@@ -126,6 +134,36 @@ func main() {
 				return
 			case msg := <-outCh:
 				p.Send(msg)
+			}
+		}
+	}()
+
+	// Mempool Network Stats Poller
+	go func() {
+		if cfg.MockMining {
+			outCh <- worker.PoolStatsMsg{
+				GlobalHashRate:    600000000000,
+				BlockHeight:       850000,
+				NetworkDifficulty: 83000000000000,
+			}
+			return
+		}
+
+		mempoolClient := &worker.MempoolClient{BaseURL: "https://mempool.space"}
+		// Fetch immediately at startup
+		if stats, err := mempoolClient.FetchStats(ctx); err == nil {
+			outCh <- stats
+		}
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if stats, err := mempoolClient.FetchStats(ctx); err == nil {
+					outCh <- stats
+				}
 			}
 		}
 	}()

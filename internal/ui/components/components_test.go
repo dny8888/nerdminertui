@@ -13,8 +13,8 @@ func TestRenderStatusBar(t *testing.T) {
 		Screen:      0,
 	}
 	out := RenderStatusBar(state, 80)
-	assert.Contains(t, out, "0s | Shares: 5")
-	assert.Contains(t, out, "Screen: 1/4")
+	assert.Contains(t, out, "shares: 5")
+	assert.Contains(t, out, "tela 1/3")
 }
 
 func TestRenderCPUBar(t *testing.T) {
@@ -22,6 +22,6 @@ func TestRenderCPUBar(t *testing.T) {
 		CPUTarget: 0.5,
 	}
 	out := RenderCPUBar(state, 80)
-	assert.Contains(t, out, "CPU [")
+	assert.Contains(t, out, "cpu [")
 	assert.Contains(t, out, "50%")
 }

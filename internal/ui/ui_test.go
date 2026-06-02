@@ -40,6 +40,7 @@ func TestAppModel_UpdateAndScreens(t *testing.T) {
 	assert.Equal(t, 0.50, app.state.CPUTarget)
 
 	// Test messages
+	app.state.PoolConnected = true
 	m, _ = app.Update(worker.HashRateMsg{HPS: 1000, CPUActual: 0.5})
 	app = m.(AppModel)
 	assert.Equal(t, 1000.0, app.state.HashRateHistory[len(app.state.HashRateHistory)-1])
@@ -50,7 +51,7 @@ func TestAppModel_UpdateAndScreens(t *testing.T) {
 
 	m, _ = app.Update(worker.PoolStatsMsg{GlobalHashRate: 4000})
 	app = m.(AppModel)
-	assert.Equal(t, uint32(4000), app.state.BlockHeight)
+	assert.Equal(t, float64(4000), app.state.NetworkHashRate)
 	
 	// Test pure rendering of screens
 	app.state.Screen = 0
@@ -64,6 +65,7 @@ func TestAppModel_UpdateAndScreens(t *testing.T) {
 	assert.NotEqual(t, view0, view2)
 
 	// Quit
+	app.state.Screen = model.ScreenDashboard // Ensure we are not in settings where q is text input
 	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}, Alt: false})
 	assert.Equal(t, tea.Quit(), cmd())
 }

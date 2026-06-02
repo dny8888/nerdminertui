@@ -27,13 +27,22 @@ func RenderStatusBar(state model.AppState, width int) string {
 
 	addr := sbAddrStyle.Render(fmt.Sprintf("%s:%d", state.PoolAddress, state.PoolPort))
 	
-	statusDot := "●"
-	statusText := "Conectado"
+	statusText := state.ConnectionStatus
+	if statusText == "" {
+		statusText = "Desconectado"
+	}
+	
+	var statusDot string	
 	if !state.PoolConnected {
-		statusDot = lipgloss.NewStyle().Foreground(ColorRed).Render("●")
-		statusText = lipgloss.NewStyle().Foreground(ColorRed).Render("Desconectado")
+		if statusText == "Conectando..." {
+			statusDot = lipgloss.NewStyle().Foreground(ColorYellow).Render("●")
+			statusText = lipgloss.NewStyle().Foreground(ColorYellow).Render(statusText)
+		} else {
+			statusDot = lipgloss.NewStyle().Foreground(ColorRed).Render("●")
+			statusText = lipgloss.NewStyle().Foreground(ColorRed).Render(statusText)
+		}
 	} else {
-		statusDot = sbDotStyle.Render(statusDot)
+		statusDot = sbDotStyle.Render("●")
 		statusText = sbStatusStyle.Render(statusText)
 	}
 
