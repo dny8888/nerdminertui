@@ -21,6 +21,7 @@ type SettingsModel struct {
 	Inputs     []textinput.Model
 	FocusIndex int
 	MockMining bool
+	DebugMode  bool
 }
 
 // NewSettingsModel creates a new settings form model
@@ -28,6 +29,7 @@ func NewSettingsModel(state model.AppState) SettingsModel {
 	m := SettingsModel{
 		Inputs:     make([]textinput.Model, 5),
 		MockMining: state.MockMining,
+		DebugMode:  state.DebugMode,
 	}
 
 	var t textinput.Model
@@ -94,8 +96,9 @@ func RenderSettings(state model.AppState, sm SettingsModel, width, height int) s
 	f1 := sm.FocusIndex == 1
 	f2 := sm.FocusIndex == 2
 	f3 := sm.FocusIndex == 3
-	fMock := sm.FocusIndex == 4 // Mock is 4 according to app.go
-	f4 := sm.FocusIndex == 5 // CPU Target is 5 according to app.go
+	fMock := sm.FocusIndex == 4
+	fDebug := sm.FocusIndex == 5
+	f4 := sm.FocusIndex == 6 // CPU Target is now 6
 
 	// Use lipgloss to layout the main grid
 	gridStyle := lipgloss.NewStyle().MarginLeft(4)
@@ -113,27 +116,46 @@ func RenderSettings(state model.AppState, sm SettingsModel, width, height int) s
 	b.WriteString("\n\n")
 
 	// Mock mining radio
-	var radio string
+	var mockRadio string
 	if sm.MockMining {
-		radio = "(•) true   ( ) false"
+		mockRadio = "(•) true   ( ) false"
 	} else {
-		radio = "( ) true   (•) false"
+		mockRadio = "( ) true   (•) false"
 	}
 	
-	radioStyle := components.StyleDim
-	borderStyle := components.BorderStyle.Width(16).PaddingLeft(1)
+	mockRadioStyle := components.StyleDim
+	mockBorderStyle := components.BorderStyle.Width(16).PaddingLeft(1)
 	if fMock {
-		borderStyle = borderStyle.BorderForeground(components.ColorYellow)
-		radioStyle = focusedStyle
+		mockBorderStyle = mockBorderStyle.BorderForeground(components.ColorYellow)
+		mockRadioStyle = focusedStyle
 	}
 	
 	mockLabel := components.StyleDim.Render("Mock Mode")
-	mockBox := borderStyle.Render(radioStyle.Render(radio))
+	mockBox := mockBorderStyle.Render(mockRadioStyle.Render(mockRadio))
 	mockWidget := fmt.Sprintf("%s\n%s", mockLabel, mockBox)
 
-	// Row 3: CPU % (16) | Mock Mode (16)
+	// Debug mode radio
+	var debugRadio string
+	if sm.DebugMode {
+		debugRadio = "(•) true   ( ) false"
+	} else {
+		debugRadio = "( ) true   (•) false"
+	}
+	
+	debugRadioStyle := components.StyleDim
+	debugBorderStyle := components.BorderStyle.Width(16).PaddingLeft(1)
+	if fDebug {
+		debugBorderStyle = debugBorderStyle.BorderForeground(components.ColorYellow)
+		debugRadioStyle = focusedStyle
+	}
+	
+	debugLabel := components.StyleDim.Render("Debug Logs")
+	debugBox := debugBorderStyle.Render(debugRadioStyle.Render(debugRadio))
+	debugWidget := fmt.Sprintf("%s\n%s", debugLabel, debugBox)
+
+	// Row 3: CPU % (16) | Mock Mode (16) | Debug (16)
 	w4 := renderInput("CPU % (max 75)", sm.Inputs[4], 16, f4)
-	row3 := lipgloss.JoinHorizontal(lipgloss.Top, w4, "  ", mockWidget)
+	row3 := lipgloss.JoinHorizontal(lipgloss.Top, w4, "  ", mockWidget, "  ", debugWidget)
 	b.WriteString(gridStyle.Render(row3))
 	b.WriteString("\n\n\n\n")
 

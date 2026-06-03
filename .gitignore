@@ -18,3 +18,9 @@ vendor/
 
 # OS
 .DS_Store
+
+#logs
+logs/
+*.log
+*.out
+*.err

@@ -290,9 +290,9 @@ func TestStratumPoolClient_SubmitShareNonceFormat(t *testing.T) {
 
 	select {
 	case line := <-received:
-		// The nonce 0x12345678 in LE bytes: 78 56 34 12 → hex string: "78563412"
-		// (cgminer submits raw LE bytes as hex, which is what our code does)
-		assert.Contains(t, line, "78563412", "nonce must be little-endian hex (raw header bytes)")
+		// The nonce 0x12345678 in hex string: "12345678"
+		// (normal Big-Endian representation, as expected by Stratum pools)
+		assert.Contains(t, line, "12345678", "nonce must be standard hex string")
 		assert.Contains(t, line, "job42")
 		assert.Contains(t, line, "00000001")
 		assert.Contains(t, line, "5bfc2e56")
@@ -399,4 +399,66 @@ func TestStratumPoolClient_HandleNotifyDeliversJob(t *testing.T) {
 		t.Fatal("timeout: mining.notify did not deliver a job to JobCh")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// suggest_difficulty check
+// ---------------------------------------------------------------------------
+
+func TestStratumPoolClient_SuggestDifficultyOnConnect(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+
+	received := make(chan string, 3)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		scanner := bufio.NewScanner(conn)
+		for scanner.Scan() {
+			received <- scanner.Text()
+		}
+	}()
+
+	addr := listener.Addr().(*net.TCPAddr)
+	client := &StratumPoolClient{
+		Address:    "127.0.0.1",
+		Port:       addr.Port,
+		BTCAddress: "testaddr",
+		OutCh:      make(chan tea.Msg, 10),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	
+	// Ensure connection is forcefully closed so scanner.Scan() aborts
+	defer func() {
+		client.mu.Lock()
+		if client.conn != nil {
+			client.conn.Close()
+		}
+		client.mu.Unlock()
+	}()
+	
+	// connectAndLoop will block waiting for a job, so we run it in a goroutine
+	go client.connectAndLoop(ctx)
+
+	var lines []string
+	for i := 0; i < 3; i++ {
+		select {
+		case line := <-received:
+			lines = append(lines, line)
+		case <-time.After(2 * time.Second):
+			t.Fatal("timeout waiting for stratum handshake")
+		}
+	}
+
+	assert.Contains(t, lines[0], "mining.subscribe")
+	assert.Contains(t, lines[1], "mining.authorize")
+	assert.Contains(t, lines[2], "mining.suggest_difficulty")
+	assert.Contains(t, lines[2], "0.00015")
+}
+
 

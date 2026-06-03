@@ -46,6 +46,7 @@ type AppState struct {
 	WorkerName      string
 	BTCAddress      string
 	MockMining      bool
+	DebugMode       bool
 	ConfigValid     bool
 	Uptime          time.Duration
 	StartedAt       time.Time

@@ -45,9 +45,9 @@ func formatThreeDigits(v float64) string {
 	}
 	if v == 0 {
 		return "0.00"
-	} else if v < 10 {
+	} else if v < 9.995 { // 9.994 rounds to 9.99, 9.995 rounds to 10.0
 		return fmt.Sprintf("%.2f", v)
-	} else if v < 100 {
+	} else if v < 99.95 { // 99.94 rounds to 99.9, 99.95 rounds to 100
 		return fmt.Sprintf("%.1f", v)
 	}
 	return fmt.Sprintf("%.0f", v)
@@ -100,6 +100,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.state.PoolAddress = m.settings.Inputs[2].Value()
 			_, _ = fmt.Sscanf(m.settings.Inputs[3].Value(), "%d", &m.state.PoolPort)
 			m.state.MockMining = m.settings.MockMining
+			m.state.DebugMode = m.settings.DebugMode
 			
 			var cpuTargetInt int
 			if _, err := fmt.Sscanf(m.settings.Inputs[4].Value(), "%d", &cpuTargetInt); err == nil {
@@ -122,10 +123,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.settings.FocusIndex++
 				}
 
-				if m.settings.FocusIndex > 5 {
+				if m.settings.FocusIndex > 6 {
 					m.settings.FocusIndex = 0
 				} else if m.settings.FocusIndex < 0 {
-					m.settings.FocusIndex = 5
+					m.settings.FocusIndex = 6
 				}
 
 				var cmds []tea.Cmd
@@ -133,7 +134,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					isFocused := false
 					if i < 4 && m.settings.FocusIndex == i {
 						isFocused = true
-					} else if i == 4 && m.settings.FocusIndex == 5 {
+					} else if i == 4 && m.settings.FocusIndex == 6 {
 						isFocused = true
 					}
 
@@ -150,8 +151,12 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Batch(cmds...)
 			}
 		case " ", "enter":
-			if m.state.Screen == model.ScreenSettings && m.settings.FocusIndex == 4 {
-				m.settings.MockMining = !m.settings.MockMining
+			if m.state.Screen == model.ScreenSettings {
+				if m.settings.FocusIndex == 4 {
+					m.settings.MockMining = !m.settings.MockMining
+				} else if m.settings.FocusIndex == 5 {
+					m.settings.DebugMode = !m.settings.DebugMode
+				}
 			}
 		case "tab":
 			m.state = m.state.NextScreen()

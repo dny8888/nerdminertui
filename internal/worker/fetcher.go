@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -160,8 +161,10 @@ func (c *StratumPoolClient) connectAndLoop(ctx context.Context) error {
 	c.OutCh <- ConnectionStatusMsg{Status: "Conectando..."}
 	dialer := net.Dialer{Timeout: 10 * time.Second}
 	addr := fmt.Sprintf("%s:%d", c.Address, c.Port)
+	log.Printf("[Stratum] Connecting to %s", addr)
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
+		log.Printf("[Stratum] Connection failed: %v", err)
 		return err
 	}
 	
@@ -177,9 +180,11 @@ func (c *StratumPoolClient) connectAndLoop(ctx context.Context) error {
 			c.conn = nil
 		}
 		c.mu.Unlock()
+		log.Printf("[Stratum] Connection closed")
 	}()
 
 	c.OutCh <- ConnectionStatusMsg{Status: "Conectado"}
+	log.Printf("[Stratum] Connected successfully")
 
 	if err := c.sendSubscribe(); err != nil {
 		return err
@@ -187,6 +192,10 @@ func (c *StratumPoolClient) connectAndLoop(ctx context.Context) error {
 	if err := c.sendAuthorize(); err != nil {
 		return err
 	}
+
+	// Suggest a low difficulty suitable for CPU mining
+	log.Printf("[Stratum] Suggesting low difficulty for CPU mining...")
+	_ = c.send("mining.suggest_difficulty", []interface{}{0.00015})
 
 	// Keep-alive watchdog
 	watchdogCtx, cancelWatchdog := context.WithCancel(ctx)
@@ -370,6 +379,7 @@ func (c *StratumPoolClient) handleNotification(notif JSONRPCNotification) {
 
 			job, err := mining.ParseStratumJob(jobID, prevhashHex, coinb1Hex, coinb2Hex, versionHex, nbitsHex, ntimeHex, en1, en2, en2Size, merkleBranchHex, poolDiff)
 			if err == nil && job != nil {
+				log.Printf("[Stratum] Received new job: ID=%s, CleanJobs=%v, Diff=%.2f", job.JobID, true, poolDiff)
 				c.mu.Lock()
 				c.lastJob = job
 				c.mu.Unlock()
@@ -377,6 +387,8 @@ func (c *StratumPoolClient) handleNotification(notif JSONRPCNotification) {
 				case c.JobCh <- *job:
 				default:
 				}
+			} else {
+				log.Printf("[Stratum] Failed to parse job: %v", err)
 			}
 		}
 	}
@@ -427,18 +439,24 @@ func (c *StratumPoolClient) SubmitShare(ctx context.Context, nonce uint32, hash 
 		return false, fmt.Errorf("no active job to submit")
 	}
 
-	nonceHexLE := fmt.Sprintf("%02x%02x%02x%02x", byte(nonce), byte(nonce>>8), byte(nonce>>16), byte(nonce>>24))
+	nonceHex := fmt.Sprintf("%08x", nonce)
 
-	resp, err := c.sendAndWait("mining.submit", []interface{}{worker, job.JobID, job.Extranonce2Hex, job.NtimeHex, nonceHexLE}, 10*time.Second)
+	log.Printf("[Stratum] Submitting share: JobID=%s, Nonce=%s, Ntime=%s", job.JobID, nonceHex, job.NtimeHex)
+
+	resp, err := c.sendAndWait("mining.submit", []interface{}{worker, job.JobID, job.Extranonce2Hex, job.NtimeHex, nonceHex}, 10*time.Second)
 	if err != nil {
+		log.Printf("[Stratum] Share submission error: %v", err)
 		return false, err
 	}
 	if resp.Error != nil {
+		log.Printf("[Stratum] Share rejected by pool: %v", resp.Error)
 		return false, fmt.Errorf("pool rejected share: %v", resp.Error)
 	}
 	var resultBool bool
 	if err := json.Unmarshal(resp.Result, &resultBool); err == nil && resultBool {
+		log.Printf("[Stratum] Share accepted by pool")
 		return true, nil
 	}
+	log.Printf("[Stratum] Unknown share result: %s", string(resp.Result))
 	return false, fmt.Errorf("pool returned unknown result: %s", string(resp.Result))
 }

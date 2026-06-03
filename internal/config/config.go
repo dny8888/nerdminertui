@@ -21,6 +21,7 @@ type Config struct {
 	MockMining   bool          `mapstructure:"mock_mining"`
 	BTCAddress   string        `mapstructure:"btc_address"`
 	WorkerName   string        `mapstructure:"worker_name"`
+	DebugMode    bool          `mapstructure:"debug_mode"`
 }
 
 // Validate ensures that the config values fall within acceptable boundaries.
@@ -47,6 +48,7 @@ func Load() (*Config, error) {
 	v.SetDefault("store_path", "~/.nerdtui/metrics.db")
 	v.SetDefault("theme", "dark")
 	v.SetDefault("mock_mining", false)
+	v.SetDefault("debug_mode", false)
 
 	v.SetEnvPrefix("NM")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
@@ -96,6 +98,7 @@ func Save(c *Config) error {
 	v.Set("mock_mining", c.MockMining)
 	v.Set("btc_address", c.BTCAddress)
 	v.Set("worker_name", c.WorkerName)
+	v.Set("debug_mode", c.DebugMode)
 	
 	// Create ~/.nerdtui directory if it doesn't exist
 	cfgDir, _ := ExpandPath("~/.nerdtui")

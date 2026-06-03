@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -100,6 +101,7 @@ func main() {
 		WorkerName:      cfg.WorkerName,
 		BTCAddress:      cfg.BTCAddress,
 		MockMining:      cfg.MockMining,
+		DebugMode:       cfg.DebugMode,
 		ConfigValid:     configValid,
 	}
 
@@ -117,6 +119,23 @@ func main() {
 
 	// Build App Model
 	app := ui.NewAppModel(initialState, throttleCh, configUpdateCh)
+
+	// Setup Debug Logging
+	var logFile *os.File
+	if cfg.DebugMode {
+		var err error
+		logFile, err = os.OpenFile("debug.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatalf("Fatal: could not open debug log file: %v", err)
+		}
+		log.SetOutput(logFile)
+		log.Printf("--- NerdMiner TUI Started ---")
+	} else {
+		log.SetOutput(io.Discard)
+	}
+	if logFile != nil {
+		defer logFile.Close()
+	}
 
 	// Initialize Bubbletea Program
 	popts := []tea.ProgramOption{tea.WithAltScreen()}
@@ -212,7 +231,20 @@ func main() {
 				cfg.WorkerName = newState.WorkerName
 				cfg.MockMining = newState.MockMining
 				cfg.BTCAddress = newState.BTCAddress
+				cfg.DebugMode = newState.DebugMode
 				_ = config.Save(cfg)
+
+				// Update logging mode
+				if cfg.DebugMode {
+					if logFile == nil {
+						logFile, _ = os.OpenFile("debug.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+					}
+					if logFile != nil {
+						log.SetOutput(logFile)
+					}
+				} else {
+					log.SetOutput(io.Discard)
+				}
 
 				startWorker(newState)
 			}

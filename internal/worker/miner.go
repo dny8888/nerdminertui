@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"log"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -97,6 +98,7 @@ func (w *MinerWorker) Run(ctx context.Context) {
 				for b := 0; b < BatchSize; b++ {
 					hash := hashState.HashNonce(currentNonce)
 					if mining.MeetsTarget(hash, lj.Target) {
+						log.Printf("[Miner] Found valid share! JobID=%s, Nonce=%d, Hash=%x", lj.JobID, currentNonce, hash)
 						go func(n uint32, h [32]byte) {
 							submitCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 							defer cancel()

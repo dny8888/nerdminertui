@@ -13,7 +13,7 @@ import (
 func TestAppModel_UpdateAndScreens(t *testing.T) {
 	throttleCh := make(chan float64, 10)
 	state := model.AppState{
-		CPUTarget:       0.5,
+		CPUTarget: 0.5,
 	}
 	app := NewAppModel(state, throttleCh, nil)
 
@@ -52,7 +52,7 @@ func TestAppModel_UpdateAndScreens(t *testing.T) {
 	m, _ = app.Update(worker.PoolStatsMsg{GlobalHashRate: 4000})
 	app = m.(AppModel)
 	assert.Equal(t, float64(4000), app.state.NetworkHashRate)
-	
+
 	// Test pure rendering of screens
 	app.state.Screen = 0
 	view0 := app.View()
@@ -73,13 +73,34 @@ func TestAppModel_UpdateAndScreens(t *testing.T) {
 func TestInteractiveLoop(t *testing.T) {
 	state := model.AppState{CPUTarget: 0.5}
 	app := NewAppModel(state, nil, nil)
-	
+
 	// Just test Init and a tick
 	cmd := app.Init()
 	assert.NotNil(t, cmd)
-	
+
 	msg := cmd()
 	m, _ := app.Update(msg)
 	app = m.(AppModel)
 	assert.Equal(t, time.Second, app.state.Uptime)
+}
+
+func TestFormatThreeDigits(t *testing.T) {
+	tests := []struct {
+		input    float64
+		expected string
+	}{
+		{0, "0.00"},
+		{-5, "0.00"},
+		{1.234, "1.23"},
+		{9.999, "10.0"}, // formatting rounds up, which is fine
+		{12.34, "12.3"},
+		{99.99, "100"},
+		{123.4, "123"},
+		{999.9, "1000"},
+	}
+
+	for _, tc := range tests {
+		actual := formatThreeDigits(tc.input)
+		assert.Equal(t, tc.expected, actual, "For input %v", tc.input)
+	}
 }
