@@ -5,6 +5,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/nerdminertui/nerdtui/internal/model"
+	"github.com/nerdminertui/nerdtui/pkg/format"
+	"github.com/nerdminertui/nerdtui/pkg/i18n"
 )
 
 var (
@@ -16,6 +18,10 @@ var (
 	sbAddrStyle   = lipgloss.NewStyle().Foreground(ColorGray)
 	sbDotStyle    = lipgloss.NewStyle().Foreground(ColorGreen)
 	sbStatusStyle = lipgloss.NewStyle().Foreground(ColorGreen)
+	sbDotWarnStyle    = lipgloss.NewStyle().Foreground(ColorYellow)
+	sbStatusWarnStyle = lipgloss.NewStyle().Foreground(ColorYellow)
+	sbDotErrStyle     = lipgloss.NewStyle().Foreground(ColorRed)
+	sbStatusErrStyle  = lipgloss.NewStyle().Foreground(ColorRed)
 	sbValStyle    = lipgloss.NewStyle().Foreground(ColorGreen)
 	sbUptimeStyle = lipgloss.NewStyle().Foreground(ColorCyan)
 	sbTelaStyle   = lipgloss.NewStyle().Foreground(ColorOrange)
@@ -29,41 +35,29 @@ func RenderStatusBar(state model.AppState, width int) string {
 	
 	statusText := state.ConnectionStatus
 	if statusText == "" {
-		statusText = "Desconectado"
+		statusText = i18n.StatusDisconnected
 	}
 	
 	var statusDot string	
 	if !state.PoolConnected {
-		if statusText == "Conectando..." {
-			statusDot = lipgloss.NewStyle().Foreground(ColorYellow).Render("●")
-			statusText = lipgloss.NewStyle().Foreground(ColorYellow).Render(statusText)
+		if statusText == i18n.StatusConnecting {
+			statusDot = sbDotWarnStyle.Render("●")
+			statusText = sbStatusWarnStyle.Render(statusText)
 		} else {
-			statusDot = lipgloss.NewStyle().Foreground(ColorRed).Render("●")
-			statusText = lipgloss.NewStyle().Foreground(ColorRed).Render(statusText)
+			statusDot = sbDotErrStyle.Render("●")
+			statusText = sbStatusErrStyle.Render(statusText)
 		}
 	} else {
 		statusDot = sbDotStyle.Render("●")
 		statusText = sbStatusStyle.Render(statusText)
 	}
 
-	shares := fmt.Sprintf("shares: %s", sbValStyle.Render(fmt.Sprintf("%d", state.SharesFound)))
+	shares := fmt.Sprintf("%s %s", i18n.StatusShares, sbValStyle.Render(fmt.Sprintf("%d", state.SharesFound)))
 	
-	uptimeStr := ""
-	if state.Uptime > 0 {
-		days := int(state.Uptime.Hours()) / 24
-		hours := int(state.Uptime.Hours()) % 24
-		minutes := int(state.Uptime.Minutes()) % 60
-		if days > 0 {
-			uptimeStr = fmt.Sprintf("%dd %02dh %02dm", days, hours, minutes)
-		} else {
-			uptimeStr = fmt.Sprintf("%02dh %02dm", hours, minutes)
-		}
-	} else {
-		uptimeStr = "00h 00m"
-	}
-	up := fmt.Sprintf("up %s", sbUptimeStyle.Render(uptimeStr))
+	uptimeStr := format.FormatUptime(state.Uptime)
+	up := fmt.Sprintf("%s %s", i18n.StatusUp, sbUptimeStyle.Render(uptimeStr))
 
-	tela := sbTelaStyle.Render(fmt.Sprintf("tela %d/%d", state.Screen+1, model.NumScreens))
+	tela := sbTelaStyle.Render(fmt.Sprintf("%s %d/%d", i18n.StatusScreen, state.Screen+1, model.NumScreens))
 
 	content := fmt.Sprintf("%s %s %s  |  %s  |  %s  |  %s", addr, statusDot, statusText, shares, up, tela)
 

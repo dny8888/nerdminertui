@@ -8,12 +8,25 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/nerdminertui/nerdtui/internal/model"
 	"github.com/nerdminertui/nerdtui/internal/ui/components"
+	"github.com/nerdminertui/nerdtui/pkg/i18n"
 )
 
 var (
 	focusedStyle = lipgloss.NewStyle().Foreground(components.ColorOrange)
 	helpStyle    = lipgloss.NewStyle().Foreground(components.ColorGray).MarginTop(1)
 	errorStyle   = lipgloss.NewStyle().Foreground(components.ColorRed).MarginTop(1).Bold(true)
+	gridStyle    = lipgloss.NewStyle().MarginLeft(4)
+)
+
+const (
+	FocusBTCAddress = iota
+	FocusWorkerName
+	FocusPoolURL
+	FocusPort
+	FocusMockMining
+	FocusDebugMode
+	FocusCPUTarget
+	FocusMax = FocusCPUTarget
 )
 
 // SettingsModel holds the state for the settings form
@@ -84,7 +97,7 @@ func renderInput(label string, t textinput.Model, width int, focused bool) strin
 func RenderSettings(state model.AppState, sm SettingsModel, width, height int) string {
 	var b strings.Builder
 
-	b.WriteString(components.RenderHeader(state, "SETTINGS", width))
+	b.WriteString(components.RenderHeader(state, i18n.SettingsTitle, width))
 
 	if !state.ConfigValid {
 		b.WriteString(errorStyle.Render("Configuration is missing or invalid. Please fix and press Ctrl+S to save."))
@@ -92,24 +105,31 @@ func RenderSettings(state model.AppState, sm SettingsModel, width, height int) s
 	}
 
 	// Calculate if focused
-	f0 := sm.FocusIndex == 0
-	f1 := sm.FocusIndex == 1
-	f2 := sm.FocusIndex == 2
-	f3 := sm.FocusIndex == 3
-	fMock := sm.FocusIndex == 4
-	fDebug := sm.FocusIndex == 5
-	f4 := sm.FocusIndex == 6 // CPU Target is now 6
+	f0 := sm.FocusIndex == FocusBTCAddress
+	f1 := sm.FocusIndex == FocusWorkerName
+	f2 := sm.FocusIndex == FocusPoolURL
+	f3 := sm.FocusIndex == FocusPort
+	fMock := sm.FocusIndex == FocusMockMining
+	fDebug := sm.FocusIndex == FocusDebugMode
+	f4 := sm.FocusIndex == FocusCPUTarget
 
 	// Use lipgloss to layout the main grid
-	gridStyle := lipgloss.NewStyle().MarginLeft(4)
+	btcWidth := width - 8
+	if btcWidth < 66 {
+		btcWidth = 66
+	}
 
-	// Row 1: BTC Address (width 66)
-	b.WriteString(gridStyle.Render(renderInput("BTC Address", sm.Inputs[0], 66, f0)))
+	// Row 1: BTC Address
+	b.WriteString(gridStyle.Render(renderInput("BTC Address", sm.Inputs[0], btcWidth, f0)))
 	b.WriteString("\n\n")
 
-	// Row 2: Worker Name (16) | Pool URL (34) | Port (12)
+	// Row 2: Worker Name (16) | Pool URL (flex) | Port (12)
+	poolWidth := btcWidth - 16 - 12 - 4 // 4 for spacing
+	if poolWidth < 20 {
+		poolWidth = 20
+	}
 	w1 := renderInput("Worker Name", sm.Inputs[1], 16, f1)
-	w2 := renderInput("Pool URL", sm.Inputs[2], 34, f2)
+	w2 := renderInput("Pool URL", sm.Inputs[2], poolWidth, f2)
 	w3 := renderInput("Port", sm.Inputs[3], 12, f3)
 	row2 := lipgloss.JoinHorizontal(lipgloss.Top, w1, "  ", w2, "  ", w3)
 	b.WriteString(gridStyle.Render(row2))

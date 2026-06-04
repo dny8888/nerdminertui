@@ -7,12 +7,13 @@ import (
 	"github.com/nerdminertui/nerdtui/internal/model"
 	"github.com/nerdminertui/nerdtui/internal/ui/components"
 	"github.com/nerdminertui/nerdtui/pkg/format"
+	"github.com/nerdminertui/nerdtui/pkg/i18n"
 )
 
 func RenderDashboard(state model.AppState, chartView string, currentUnit string, width, height int) string {
 	var b strings.Builder
 
-	b.WriteString(components.RenderHeader(state, "DASHBOARD", width))
+	b.WriteString(components.RenderHeader(state, i18n.DashboardTitle, width))
 
 	// Current HPS is at the end of the circular buffer after WithHashRate
 	currentHPS := state.HashRateHistory[len(state.HashRateHistory)-1]
@@ -22,18 +23,7 @@ func RenderDashboard(state model.AppState, chartView string, currentUnit string,
 	sharesStr := components.StyleValue.Render(fmt.Sprintf("%d", state.SharesFound))
 	
 	// Uptime
-	uptimeStr := "0m"
-	if state.Uptime > 0 {
-		days := int(state.Uptime.Hours()) / 24
-		hours := int(state.Uptime.Hours()) % 24
-		minutes := int(state.Uptime.Minutes()) % 60
-		if days > 0 {
-			uptimeStr = fmt.Sprintf("%dd %02dh %02dm", days, hours, minutes)
-		} else {
-			uptimeStr = fmt.Sprintf("%02dh %02dm", hours, minutes)
-		}
-	}
-	uptimeStr = components.StyleValue2.Render(uptimeStr)
+	uptimeStr := components.StyleValue2.Render(format.FormatUptime(state.Uptime))
 
 	// Layout Row 1: hash rate <val>   best diff <val>
 	r1col1 := fmt.Sprintf("%-10s %-12s", components.StyleLabel.Render("hash rate"), hashStr)

@@ -8,29 +8,42 @@ import (
 	"github.com/nerdminertui/nerdtui/internal/model"
 )
 
+var (
+	headerTitleStyle  = lipgloss.NewStyle().Foreground(ColorOrange).Bold(true)
+	headerLineStyle   = lipgloss.NewStyle().Foreground(ColorGray)
+	headerScreenStyle = lipgloss.NewStyle().Foreground(ColorWhite).Bold(true)
+	headerBlockStyle  = lipgloss.NewStyle().Foreground(ColorGreen)
+)
+
 // RenderHeader renders the common top header for all screens.
 func RenderHeader(state model.AppState, screenName string, width int) string {
 	titleStr := "▶ NERDMINER TUI"
-	blockStr := fmt.Sprintf("#%d", state.BlockHeight)
-
-	// Styles
-	titleStyle := lipgloss.NewStyle().Foreground(ColorOrange).Bold(true)
-	lineStyle := lipgloss.NewStyle().Foreground(ColorGray)
-	screenStyle := lipgloss.NewStyle().Foreground(ColorWhite).Bold(true)
-	blockStyle := lipgloss.NewStyle().Foreground(ColorGreen)
+	
+	var blockStr string
+	if state.BlockHeight > 0 {
+		blockStr = fmt.Sprintf("#%d", state.BlockHeight)
+	} else {
+		blockStr = "--"
+	}
 
 	// Render parts
-	titlePart := titleStyle.Render(titleStr)
-	screenPart := screenStyle.Render(strings.ToUpper(screenName))
-	blockPart := blockStyle.Render(blockStr)
+	titlePart := headerTitleStyle.Render(titleStr)
+	screenPart := headerScreenStyle.Render(strings.ToUpper(screenName))
+	blockPart := headerBlockStyle.Render(blockStr)
 
 	// Left section is: title + line + screenName + blockStr
-	// e.g. "▶ NERDMINER TUI -------- DASHBOARD #892441"
-	lineLen := 8
-	linePart := lineStyle.Render(strings.Repeat("─", lineLen))
+	// We want to calculate the line length dynamically to fill the screen
+	// width = len(title) + len(line) + len(screenName) + len(blockStr) + 3 spaces
+	
+	staticLen := lipgloss.Width(titlePart) + lipgloss.Width(screenPart) + lipgloss.Width(blockPart) + 3
+	lineLen := width - staticLen - 2 // -2 for safety margin
+	if lineLen < 4 {
+		lineLen = 4
+	}
+	
+	linePart := headerLineStyle.Render(strings.Repeat("─", lineLen))
 
 	leftContent := fmt.Sprintf("%s %s %s %s", titlePart, linePart, screenPart, blockPart)
 
-	// Optional padding to full width if needed, but for now we just return the string
 	return leftContent + "\n\n"
 }

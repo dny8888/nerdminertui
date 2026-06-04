@@ -70,11 +70,10 @@ func (s *SQLiteStore) QueryHashRateHistory(ctx context.Context, limit int) ([]fl
 	}
 
 	// Reverse to get chronological order (oldest to newest)
-	asc := make([]float64, len(desc))
-	for i := range desc {
-		asc[len(desc)-1-i] = desc[i]
+	for i := 0; i < len(desc)/2; i++ {
+		desc[i], desc[len(desc)-1-i] = desc[len(desc)-1-i], desc[i]
 	}
-	return asc, nil
+	return desc, nil
 }
 
 // Close gracefully closes the database connection pool.
