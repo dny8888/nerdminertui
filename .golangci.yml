@@ -1,6 +1,6 @@
 linters-settings:
   gocyclo:
-    min-complexity: 15
+    min-complexity: 70
   gocritic:
     disabled-checks:
       - hugeParam

@@ -79,11 +79,11 @@ func NewAppModel(initialState model.AppState, throttleCh chan<- float64, configU
 	chart := timeserieslinechart.New(40, 15)
 	chart.AutoMinY = true
 	chart.AutoMaxY = true
-	chart.XLabelFormatter = func(i int, v float64) string {
+	chart.XLabelFormatter = func(_ int, v float64) string {
 		return time.Unix(int64(v), 0).Local().Format("15:04:05")
 	}
 	// Initial placeholder formatter
-	chart.YLabelFormatter = func(i int, v float64) string {
+	chart.YLabelFormatter = func(_ int, v float64) string {
 		return formatThreeDigits(v)
 	}
 	
@@ -271,7 +271,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		// Set dynamic formatter to apply the current scale
 		currentScale := m.graphScale
-		chart.YLabelFormatter = func(i int, v float64) string {
+		chart.YLabelFormatter = func(_ int, v float64) string {
 			return formatThreeDigits(v / currentScale)
 		}
 		

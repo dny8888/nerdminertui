@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // sqlite driver
 )
 
 // Store defines the interface for persisting application metrics.
@@ -90,12 +90,12 @@ func NewNilStore() *NilStore {
 }
 
 // AppendHashRate does nothing and returns nil.
-func (n *NilStore) AppendHashRate(ctx context.Context, hps float64, at time.Time) error {
+func (n *NilStore) AppendHashRate(_ context.Context, _ float64, _ time.Time) error {
 	return nil
 }
 
 // QueryHashRateHistory returns an empty slice and nil.
-func (n *NilStore) QueryHashRateHistory(ctx context.Context, limit int) ([]float64, error) {
+func (n *NilStore) QueryHashRateHistory(_ context.Context, _ int) ([]float64, error) {
 	return []float64{}, nil
 }
 

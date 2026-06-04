@@ -18,7 +18,7 @@ import (
 	"github.com/nerdminertui/nerdtui/pkg/mining"
 )
 
-var version = "dev"
+var _ = "dev"
 
 func main() {
 	configPath := flag.String("config", "", "Path to config file")

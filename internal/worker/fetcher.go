@@ -29,7 +29,7 @@ type PoolClient interface {
 type MockPoolClient struct{}
 
 // FetchStats returns simulated global statistics.
-func (c *MockPoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
+func (c *MockPoolClient) FetchStats(_ context.Context) (PoolStatsMsg, error) {
 	return PoolStatsMsg{
 		GlobalHashRate:    4.5e18,
 		NetworkDifficulty: 88.1e12,
@@ -38,7 +38,7 @@ func (c *MockPoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
 }
 
 // SubmitShare unconditionally accepts the mock share.
-func (c *MockPoolClient) SubmitShare(ctx context.Context, extranonce2Hex string, nonce uint32, hash [32]byte) (bool, error) {
+func (c *MockPoolClient) SubmitShare(_ context.Context, _ string, _ uint32, _ [32]byte) (bool, error) {
 	return true, nil
 }
 
@@ -99,7 +99,7 @@ func (c *MempoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
 }
 
 // SubmitShare is not implemented for HTTP client.
-func (c *MempoolClient) SubmitShare(ctx context.Context, extranonce2Hex string, nonce uint32, hash [32]byte) (bool, error) {
+func (c *MempoolClient) SubmitShare(_ context.Context, _ string, _ uint32, _ [32]byte) (bool, error) {
 	return false, nil
 }
 
@@ -479,12 +479,12 @@ func (c *StratumPoolClient) handleResponse(resp JSONRPCResponse) {
 }
 
 // FetchStats is not natively implemented by Stratum (some pools support an ext).
-func (c *StratumPoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
+func (c *StratumPoolClient) FetchStats(_ context.Context) (PoolStatsMsg, error) {
 	return PoolStatsMsg{}, nil
 }
 
 // SubmitShare submits mining results over TCP Stratum.
-func (c *StratumPoolClient) SubmitShare(ctx context.Context, extranonce2Hex string, nonce uint32, hash [32]byte) (bool, error) {
+func (c *StratumPoolClient) SubmitShare(_ context.Context, extranonce2Hex string, nonce uint32, _ [32]byte) (bool, error) {
 	worker := c.BTCAddress
 	if c.WorkerName != "" {
 		worker = worker + "." + c.WorkerName

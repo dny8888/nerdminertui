@@ -101,7 +101,7 @@ func renderInput(label string, t textinput.Model, width int, focused bool, valid
 }
 
 // RenderSettings renders the configuration settings form.
-func RenderSettings(state model.AppState, sm SettingsModel, width, height int) string {
+func RenderSettings(state model.AppState, sm SettingsModel, width, _ int) string {
 	var b strings.Builder
 
 	b.WriteString(components.RenderHeader(state, i18n.SettingsTitle, width))
