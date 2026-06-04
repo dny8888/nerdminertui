@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Interactive help overlay (`?` hotkey) to display global keyboard shortcuts.
+- `ToastManager` system for temporary, non-blocking alert notifications (errors and status updates) on the UI.
+- Persistent SQLite `store` integration for hashrate history tracking across application restarts.
+- Centralized `i18n` dictionary (`pkg/i18n`) replacing hardcoded strings with Portuguese translations.
+
+### Changed
+- Refactored the core mining hash loop using `sync.Pool` and pre-calculated SHA256d mid-states to eliminate heap allocations, drastically increasing hashrate performance.
+- Optimized Stratum parsing to reduce JSON unmarshaling overhead.
+- Updated all UI components (Dashboard, Settings, Global Stats, Status Bar) to be fully responsive to terminal resizing (`tea.WindowSizeMsg`).
+- Improved navigation in the Settings screen by supporting backwards cycling with `Shift+Tab`.
+
+### Fixed
+- Fixed UI uptime rendering bug where uptime failed to properly format days and appeared as `0m`.
 ## [1.1.0] - 2026-06-04
 ### Added
 - Support for `client.reconnect` method in the Stratum pool client.
