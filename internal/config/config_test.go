@@ -15,9 +15,11 @@ func TestConfigValidate(t *testing.T) {
 	t.Run("Valid Config", func(t *testing.T) {
 		t.Parallel()
 		c := &Config{
-			CPUTarget:  0.75,
-			MockMining: false,
-			BTCAddress: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+			CPUTarget:   0.75,
+			MockMining:  false,
+			BTCAddress:  "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+			PoolAddress: "public-pool.io",
+			PoolPort:    21496,
 		}
 		assert.NoError(t, c.Validate())
 	})
@@ -25,8 +27,10 @@ func TestConfigValidate(t *testing.T) {
 	t.Run("Invalid CPU Target Low", func(t *testing.T) {
 		t.Parallel()
 		c := &Config{
-			CPUTarget:  0.02,
-			MockMining: true,
+			CPUTarget:   0.02,
+			MockMining:  true,
+			PoolAddress: "public-pool.io",
+			PoolPort:    21496,
 		}
 		err := c.Validate()
 		assert.Error(t, err)
@@ -36,8 +40,10 @@ func TestConfigValidate(t *testing.T) {
 	t.Run("Invalid CPU Target High", func(t *testing.T) {
 		t.Parallel()
 		c := &Config{
-			CPUTarget:  0.80,
-			MockMining: true,
+			CPUTarget:   0.80,
+			MockMining:  true,
+			PoolAddress: "public-pool.io",
+			PoolPort:    21496,
 		}
 		err := c.Validate()
 		assert.Error(t, err)
@@ -47,9 +53,11 @@ func TestConfigValidate(t *testing.T) {
 	t.Run("Missing BTC Address", func(t *testing.T) {
 		t.Parallel()
 		c := &Config{
-			CPUTarget:  0.5,
-			MockMining: false,
-			BTCAddress: "",
+			CPUTarget:   0.5,
+			MockMining:  false,
+			BTCAddress:  "",
+			PoolAddress: "public-pool.io",
+			PoolPort:    21496,
 		}
 		err := c.Validate()
 		assert.Error(t, err)
@@ -59,9 +67,11 @@ func TestConfigValidate(t *testing.T) {
 	t.Run("Missing BTC Address but MockMining is true", func(t *testing.T) {
 		t.Parallel()
 		c := &Config{
-			CPUTarget:  0.5,
-			MockMining: true,
-			BTCAddress: "",
+			CPUTarget:   0.5,
+			MockMining:  true,
+			BTCAddress:  "",
+			PoolAddress: "public-pool.io",
+			PoolPort:    21496,
 		}
 		assert.NoError(t, c.Validate())
 	})

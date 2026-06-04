@@ -78,12 +78,19 @@ func NewSettingsModel(state model.AppState) SettingsModel {
 	return m
 }
 
-func renderInput(label string, t textinput.Model, width int, focused bool) string {
-	lbl := components.StyleDim.Render(label)
+func renderInput(label string, t textinput.Model, width int, focused bool, valid bool) string {
+	lblStyle := components.StyleDim
+	if !valid {
+		lblStyle = lipgloss.NewStyle().Foreground(components.ColorRed)
+	}
+	lbl := lblStyle.Render(label)
 	
 	borderStyle := components.BorderStyle.Width(width)
 	if focused {
 		borderStyle = borderStyle.BorderForeground(components.ColorYellow)
+	}
+	if !valid {
+		borderStyle = borderStyle.BorderForeground(components.ColorRed)
 	}
 
 	// Make text input take full inner width
@@ -119,8 +126,22 @@ func RenderSettings(state model.AppState, sm SettingsModel, width, height int) s
 		btcWidth = 66
 	}
 
+	// Validate inputs
+	btcVal := sm.Inputs[0].Value()
+	btcValid := len(btcVal) >= 26 && len(btcVal) <= 90
+
+	portVal := sm.Inputs[3].Value()
+	var portInt int
+	_, errPort := fmt.Sscanf(portVal, "%d", &portInt)
+	portValid := errPort == nil && portInt > 0 && portInt <= 65535
+
+	cpuVal := sm.Inputs[4].Value()
+	var cpuInt int
+	_, errCPU := fmt.Sscanf(cpuVal, "%d", &cpuInt)
+	cpuValid := errCPU == nil && cpuInt >= 5 && cpuInt <= 75
+
 	// Row 1: BTC Address
-	b.WriteString(gridStyle.Render(renderInput("BTC Address", sm.Inputs[0], btcWidth, f0)))
+	b.WriteString(gridStyle.Render(renderInput("BTC Address", sm.Inputs[0], btcWidth, f0, btcValid)))
 	b.WriteString("\n\n")
 
 	// Row 2: Worker Name (16) | Pool URL (flex) | Port (12)
@@ -128,9 +149,9 @@ func RenderSettings(state model.AppState, sm SettingsModel, width, height int) s
 	if poolWidth < 20 {
 		poolWidth = 20
 	}
-	w1 := renderInput("Worker Name", sm.Inputs[1], 16, f1)
-	w2 := renderInput("Pool URL", sm.Inputs[2], poolWidth, f2)
-	w3 := renderInput("Port", sm.Inputs[3], 12, f3)
+	w1 := renderInput("Worker Name", sm.Inputs[1], 16, f1, true)
+	w2 := renderInput("Pool URL", sm.Inputs[2], poolWidth, f2, len(sm.Inputs[2].Value()) > 0)
+	w3 := renderInput("Port", sm.Inputs[3], 12, f3, portValid)
 	row2 := lipgloss.JoinHorizontal(lipgloss.Top, w1, "  ", w2, "  ", w3)
 	b.WriteString(gridStyle.Render(row2))
 	b.WriteString("\n\n")
@@ -173,8 +194,8 @@ func RenderSettings(state model.AppState, sm SettingsModel, width, height int) s
 	debugBox := debugBorderStyle.Render(debugRadioStyle.Render(debugRadio))
 	debugWidget := fmt.Sprintf("%s\n%s", debugLabel, debugBox)
 
-	// Row 3: CPU % (16) | Mock Mode (16) | Debug (16)
-	w4 := renderInput("CPU % (max 75)", sm.Inputs[4], 16, f4)
+	// Row 4: Mock Mining (16) | CPU Target (16) | Debug Mode (16)
+	w4 := renderInput("CPU Target (%)", sm.Inputs[4], 16, f4, cpuValid)
 	row3 := lipgloss.JoinHorizontal(lipgloss.Top, w4, "  ", mockWidget, "  ", debugWidget)
 	b.WriteString(gridStyle.Render(row3))
 	b.WriteString("\n\n\n\n")

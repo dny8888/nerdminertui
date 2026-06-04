@@ -74,6 +74,17 @@ func (s AppState) NextScreen() AppState {
 	return s
 }
 
+// PrevScreen returns a new copy of the AppState with the ScreenID retreated
+// to the previous screen cyclically.
+func (s AppState) PrevScreen() AppState {
+	if s.Screen == 0 {
+		s.Screen = NumScreens - 1
+	} else {
+		s.Screen--
+	}
+	return s
+}
+
 // WithCPUTarget returns a new copy of the AppState with the CPUTarget adjusted
 // by adding the specified delta, clamped to the [MinCPUTarget, MaxCPUTarget] range.
 func (s AppState) WithCPUTarget(delta float64) AppState {
