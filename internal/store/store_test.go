@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -11,9 +12,11 @@ import (
 )
 
 func TestSQLiteStore_AppendAndQuery(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	// Use an isolated in-memory DB per connection for SQLite testing
-	s, err := NewSQLiteStore("file::memory:?cache=shared")
+	dbName := fmt.Sprintf("file:test_%s?mode=memory&cache=shared", t.Name())
+	s, err := NewSQLiteStore(dbName)
 	require.NoError(t, err)
 	defer s.Close()
 
@@ -36,8 +39,10 @@ func TestSQLiteStore_AppendAndQuery(t *testing.T) {
 }
 
 func TestSQLiteStore_ConcurrentAppend(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
-	s, err := NewSQLiteStore("file::memory:?cache=shared")
+	dbName := fmt.Sprintf("file:test_%s?mode=memory&cache=shared", t.Name())
+	s, err := NewSQLiteStore(dbName)
 	require.NoError(t, err)
 	defer s.Close()
 
@@ -63,6 +68,7 @@ func TestSQLiteStore_ConcurrentAppend(t *testing.T) {
 }
 
 func TestNilStore(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	n := NewNilStore()
 

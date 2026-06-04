@@ -26,9 +26,8 @@ const (
 // HashHistoryLen is the length of the circular FIFO hashrate history buffer.
 const HashHistoryLen = 60
 
-// AppState represents the complete and immutable state of the TUI application.
-// It is a pure value type containing no pointers to mutable internal fields,
-// ensuring 100% thread safety for Bubbletea's MUV pattern.
+// AppState represents the complete state of the TUI application.
+// It is a value type used in Bubbletea's MUV pattern.
 type AppState struct {
 	HashRate        float64
 	HashRateHistory [HashHistoryLen]float64

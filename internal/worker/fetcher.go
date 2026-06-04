@@ -52,7 +52,7 @@ type MempoolClient struct {
 	BaseURL string
 }
 
-var mempoolHttpClient = &http.Client{
+var mempoolHTTPClient = &http.Client{
 	Timeout: 10 * time.Second,
 	Transport: &http.Transport{
 		MaxIdleConns:        100,
@@ -68,7 +68,7 @@ func (c *MempoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
 	// 1. Fetch Block Height
 	reqHeight, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/blocks/tip/height", nil)
 	if err == nil {
-		if resp, err := mempoolHttpClient.Do(reqHeight); err == nil {
+		if resp, err := mempoolHTTPClient.Do(reqHeight); err == nil {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			heightStr := strings.TrimSpace(string(body))
@@ -81,7 +81,7 @@ func (c *MempoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
 	// 2. Fetch Hashrate & Difficulty
 	reqHashrate, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/v1/mining/hashrate/3d", nil)
 	if err == nil {
-		if resp, err := mempoolHttpClient.Do(reqHashrate); err == nil {
+		if resp, err := mempoolHTTPClient.Do(reqHashrate); err == nil {
 			var hrData struct {
 				CurrentHashrate   float64 `json:"currentHashrate"`
 				CurrentDifficulty float64 `json:"currentDifficulty"`
@@ -239,7 +239,7 @@ func (c *StratumPoolClient) connectAndLoop(ctx context.Context) error {
 	scanner := bufio.NewScanner(conn)
 	for {
 		// Set a hard deadline to prevent eternal blocking
-		conn.SetReadDeadline(time.Now().Add(10 * time.Minute))
+		_ = conn.SetReadDeadline(time.Now().Add(10 * time.Minute))
 		if !scanner.Scan() {
 			break
 		}
