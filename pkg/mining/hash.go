@@ -18,8 +18,10 @@ type MinerHashState struct {
 	payload     [80]byte
 	state       []byte
 	hasher      hash.Hash
+	hasher2     hash.Hash
 	unmarshaler interface{ UnmarshalBinary([]byte) error }
 	sumBuf      []byte
+	sumBuf2     []byte
 }
 
 // NewMinerHashState initializes a zero-allocation hashing state for a given block header (76 bytes).
@@ -38,8 +40,10 @@ func NewMinerHashState(header []byte) *MinerHashState {
 	
 	// Create a dedicated hasher instance for the hot loop
 	m.hasher = sha256.New()
+	m.hasher2 = sha256.New()
 	m.unmarshaler = m.hasher.(interface{ UnmarshalBinary([]byte) error })
 	m.sumBuf = make([]byte, 0, 32)
+	m.sumBuf2 = make([]byte, 0, 32)
 	
 	return m
 }
@@ -56,9 +60,14 @@ func (m *MinerHashState) HashNonce(nonce uint32) [32]byte {
 	m.hasher.Write(m.payload[64:80])
 	
 	firstSlice := m.hasher.Sum(m.sumBuf[:0])
-	copy(finalHash[:], firstSlice)
 	
-	return sha256.Sum256(finalHash[:])
+	m.hasher2.Reset()
+	m.hasher2.Write(firstSlice)
+	secondSlice := m.hasher2.Sum(m.sumBuf2[:0])
+	
+	copy(finalHash[:], secondSlice)
+	
+	return finalHash
 }
 
 // HashHeader concatenates the block header and a 32-bit nonce

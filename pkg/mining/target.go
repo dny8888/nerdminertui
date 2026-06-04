@@ -1,17 +1,28 @@
 package mining
 
 import (
+	"encoding/binary"
 	"math/big"
 )
 
 // MeetsTarget compares a hash against a target byte-by-byte (Big-Endian).
 // A hash meets the target if its numerical value is strictly less than the target.
 func MeetsTarget(hash, target [32]byte) bool {
-	// The block hash (result of SHA256d) has its most significant byte at the end (hash[31])
-	// when treated as a 256-bit integer, while the target array is strictly Big-Endian
-	// (target[0] is the most significant byte).
-	// We compare hash[31-i] with target[i].
-	for i := 0; i < 32; i++ {
+	// Fast-path: check the most significant 64 bits first
+	// hash is Little-Endian (MSB is hash[31]) -> LittleEndian.Uint64 reads 8 bytes up to hash[31]
+	// target is Big-Endian (MSB is target[0]) -> BigEndian.Uint64 reads 8 bytes from target[0]
+	hashTop := binary.LittleEndian.Uint64(hash[24:32])
+	targetTop := binary.BigEndian.Uint64(target[0:8])
+
+	if hashTop > targetTop {
+		return false
+	}
+	if hashTop < targetTop {
+		return true
+	}
+
+	// Slow-path: check the remaining 24 bytes
+	for i := 8; i < 32; i++ {
 		if hash[31-i] < target[i] {
 			return true
 		}
@@ -19,7 +30,6 @@ func MeetsTarget(hash, target [32]byte) bool {
 			return false
 		}
 	}
-	// If all bytes are equal, it's not strictly less
 	return false
 }
 

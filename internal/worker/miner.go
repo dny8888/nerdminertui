@@ -3,7 +3,7 @@ package worker
 import (
 	"context"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"runtime"
 	"sync"
 	"sync/atomic"
