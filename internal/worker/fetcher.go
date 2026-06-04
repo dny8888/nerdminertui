@@ -68,7 +68,7 @@ func (c *MempoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
 	// 1. Fetch Block Height
 	reqHeight, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/blocks/tip/height", nil)
 	if err == nil {
-		if 	resp, err := mempoolHTTPClient.Get("https://mempool.space/api/blocks/tip/height"); err == nil {
+		if resp, err := mempoolHTTPClient.Do(reqHeight); err == nil {
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
 			heightStr := strings.TrimSpace(string(body))
@@ -81,7 +81,7 @@ func (c *MempoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
 	// 2. Fetch Hashrate & Difficulty
 	reqHashrate, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/v1/mining/hashrate/3d", nil)
 	if err == nil {
-		if 	resp, err := mempoolHTTPClient.Get("https://mempool.space/api/v1/mining/hashrate/3d"); err == nil {
+		if resp, err := mempoolHTTPClient.Do(reqHashrate); err == nil {
 			var hrData struct {
 				CurrentHashrate   float64 `json:"currentHashrate"`
 				CurrentDifficulty float64 `json:"currentDifficulty"`
