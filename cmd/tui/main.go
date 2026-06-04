@@ -28,11 +28,7 @@ func main() {
 	flag.Parse()
 
 	// Load configuration
-	// Note: config.Load() does not take arguments, it reads from Viper/env.
-	// If a config file was specified, we'd need to modify config.Load to accept it,
-	// but per internal/config spec it doesn't take arguments.
-	_ = configPath // Avoid unused variable
-	cfg, err := config.Load()
+	cfg, err := config.Load(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
@@ -46,7 +42,7 @@ func main() {
 	}
 
 	configValid := true
-	if !cfg.MockMining && cfg.BTCAddress == "" {
+	if err := cfg.Validate(); err != nil {
 		configValid = false
 	}
 
@@ -132,7 +128,7 @@ func main() {
 	var logFile *os.File
 	if cfg.DebugMode {
 		var err error
-		logFile, err = os.OpenFile("debug.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+		logFile, err = os.OpenFile("debug.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
 		if err != nil {
 			log.Fatalf("Fatal: could not open debug log file: %v", err)
 		}
@@ -250,7 +246,7 @@ func main() {
 				// Update logging mode
 				if cfg.DebugMode {
 					if logFile == nil {
-						logFile, _ = os.OpenFile("debug.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0666)
+						logFile, _ = os.OpenFile("debug.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
 					}
 					if logFile != nil {
 						log.SetOutput(logFile)

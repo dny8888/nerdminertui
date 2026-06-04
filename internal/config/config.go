@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -26,17 +27,30 @@ type Config struct {
 
 // Validate ensures that the config values fall within acceptable boundaries.
 func (c *Config) Validate() error {
+	if c.PoolAddress == "" {
+		return errors.New("pool_address cannot be empty")
+	}
+	if c.PoolPort < 1 || c.PoolPort > 65535 {
+		return fmt.Errorf("pool_port %d is out of bounds [1, 65535]", c.PoolPort)
+	}
 	if c.CPUTarget < 0.05 || c.CPUTarget > 0.75 {
 		return fmt.Errorf("cpu_target %.2f is out of bounds [0.05, 0.75]", c.CPUTarget)
 	}
-	if !c.MockMining && c.BTCAddress == "" {
-		return errors.New("btc_address is required when mock_mining is false")
+	if !c.MockMining {
+		if c.BTCAddress == "" {
+			return errors.New("btc_address is required when mock_mining is false")
+		}
+		
+		matched, _ := regexp.MatchString("^[a-zA-Z0-9]{25,90}$", c.BTCAddress)
+		if !matched {
+			return errors.New("btc_address contains invalid characters or length")
+		}
 	}
 	return nil
 }
 
 // Load loads the configuration from environment variables, files, and defaults.
-func Load() (*Config, error) {
+func Load(configPath string) (*Config, error) {
 	v := viper.New()
 
 	// Apply defaults
@@ -59,11 +73,14 @@ func Load() (*Config, error) {
 		cfgDir, _ = ExpandPath("~/.nerdtui")
 	}
 	var errRead error
-	if cfgDir != "" {
+	if configPath != "" {
+		v.SetConfigFile(configPath)
+		errRead = v.ReadInConfig()
+	} else if cfgDir != "" {
 		v.AddConfigPath(cfgDir)
 		v.SetConfigName("config")
 		v.SetConfigType("yaml")
-		errRead = v.ReadInConfig() // capture error to know if config was loaded
+		errRead = v.ReadInConfig()
 	}
 
 	var c Config
@@ -101,8 +118,13 @@ func Save(c *Config) error {
 	v.Set("debug_mode", c.DebugMode)
 	
 	// Create ~/.nerdtui directory if it doesn't exist
-	cfgDir, _ := ExpandPath("~/.nerdtui")
-	_ = os.MkdirAll(cfgDir, 0755)
+	cfgDir, err := ExpandPath("~/.nerdtui")
+	if err != nil {
+		return fmt.Errorf("failed to expand config path: %w", err)
+	}
+	if err := os.MkdirAll(cfgDir, 0700); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
 	
 	v.AddConfigPath(cfgDir)
 	v.SetConfigName("config")

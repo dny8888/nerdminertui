@@ -10,7 +10,10 @@ import (
 )
 
 func TestConfigValidate(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Valid Config", func(t *testing.T) {
+		t.Parallel()
 		c := &Config{
 			CPUTarget:  0.75,
 			MockMining: false,
@@ -20,6 +23,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("Invalid CPU Target Low", func(t *testing.T) {
+		t.Parallel()
 		c := &Config{
 			CPUTarget:  0.02,
 			MockMining: true,
@@ -30,6 +34,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("Invalid CPU Target High", func(t *testing.T) {
+		t.Parallel()
 		c := &Config{
 			CPUTarget:  0.80,
 			MockMining: true,
@@ -40,6 +45,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("Missing BTC Address", func(t *testing.T) {
+		t.Parallel()
 		c := &Config{
 			CPUTarget:  0.5,
 			MockMining: false,
@@ -51,6 +57,7 @@ func TestConfigValidate(t *testing.T) {
 	})
 
 	t.Run("Missing BTC Address but MockMining is true", func(t *testing.T) {
+		t.Parallel()
 		c := &Config{
 			CPUTarget:  0.5,
 			MockMining: true,
@@ -61,6 +68,7 @@ func TestConfigValidate(t *testing.T) {
 }
 
 func TestExpandPath(t *testing.T) {
+	t.Parallel()
 	home, err := os.UserHomeDir()
 	assert.NoError(t, err)
 
@@ -78,19 +86,16 @@ func TestExpandPath(t *testing.T) {
 }
 
 func TestLoadDefaultsAndEnv(t *testing.T) {
+	// Cannot use t.Parallel() with t.Setenv
 	// Set mock env vars
-	os.Setenv("NM_POOL_ADDRESS", "test-pool.io")
-	os.Setenv("NM_CPU_TARGET", "0.70")
-	os.Setenv("NM_MOCK_MINING", "true")
-	defer os.Unsetenv("NM_POOL_ADDRESS")
-	defer os.Unsetenv("NM_CPU_TARGET")
-	defer os.Unsetenv("NM_MOCK_MINING")
+	t.Setenv("NM_POOL_ADDRESS", "test-pool.io")
+	t.Setenv("NM_CPU_TARGET", "0.70")
+	t.Setenv("NM_MOCK_MINING", "true")
 
 	// Temporarily override NM_CONFIG_DIR to a fake directory so it doesn't read the real user config
-	os.Setenv("NM_CONFIG_DIR", "/tmp/nerdtui-mock-config-dir")
-	defer os.Unsetenv("NM_CONFIG_DIR")
+	t.Setenv("NM_CONFIG_DIR", "/tmp/nerdtui-mock-config-dir")
 
-	c, err := Load()
+	c, err := Load("")
 	assert.NoError(t, err)
 
 	// Env overrides

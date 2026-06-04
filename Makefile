@@ -7,7 +7,8 @@ BUILD_DIR := bin
 # Go settings
 GO := go
 GOFLAGS := -trimpath
-LDFLAGS := -s -w
+VERSION ?= $(shell git describe --tags --always --dirty)
+LDFLAGS := -s -w -X main.version=$(VERSION)
 CGO := 0
 
 # Linting

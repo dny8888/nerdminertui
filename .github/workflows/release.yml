@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go test ./...
+      - run: go test -race ./...
       - run: go vet ./...
 
   build:
@@ -56,7 +56,7 @@ jobs:
           APP_NAME=$(basename $(grep '^module' go.mod | awk '{print $2}'))
           VERSION=${GITHUB_REF_NAME}
           BINARY="${APP_NAME}${{ matrix.ext }}"
-          go build -ldflags "-s -w -X main.version=${VERSION}" \
+          go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
             -o "${BINARY}" ./cmd/tui/
 
       - name: Package

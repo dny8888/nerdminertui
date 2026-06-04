@@ -16,7 +16,7 @@ func TestSchemaCompilesAndExecutes(t *testing.T) {
 	defer db.Close()
 
 	// 2. Execute the embedded schema
-	_, err = db.Exec(SchemaDDL)
+	err = Migrate(db)
 	assert.NoError(t, err, "schema should execute without errors")
 
 	// 3. Verify the table exists by inserting a test row
