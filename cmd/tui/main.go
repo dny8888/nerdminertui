@@ -93,7 +93,6 @@ func main() {
 	// Build initial state
 	initialState := model.AppState{
 		CPUTarget:       *cpuTargetFlag,
-		HashRateHistory: [model.HashHistoryLen]float64{},
 		Screen:          model.ScreenDashboard,
 		StartedAt:       time.Now(),
 		PoolAddress:     cfg.PoolAddress,
@@ -103,6 +102,15 @@ func main() {
 		MockMining:      cfg.MockMining,
 		DebugMode:       cfg.DebugMode,
 		ConfigValid:     configValid,
+	}
+
+	if st != nil {
+		if history, err := st.QueryHashRateHistory(context.Background(), model.HashHistoryLen); err == nil {
+			offset := model.HashHistoryLen - len(history)
+			for i, val := range history {
+				initialState.HashRateHistory[offset+i] = val
+			}
+		}
 	}
 
 	if cfg.MockMining {
@@ -154,6 +162,11 @@ func main() {
 			case <-ctx.Done():
 				return
 			case msg := <-outCh:
+				if hrMsg, ok := msg.(worker.HashRateMsg); ok {
+					if st != nil {
+						_ = st.AppendHashRate(ctx, hrMsg.HPS, time.Now())
+					}
+				}
 				p.Send(msg)
 			}
 		}

@@ -7,19 +7,34 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/nerdminertui/nerdtui/internal/model"
 	"github.com/nerdminertui/nerdtui/internal/ui/components"
+	"github.com/nerdminertui/nerdtui/pkg/format"
+	"github.com/nerdminertui/nerdtui/pkg/i18n"
+)
+
+var (
+	globalStatsGridStyle = lipgloss.NewStyle().
+				MarginTop(1).
+				MarginBottom(1)
+	lotteryCardStyle = lipgloss.NewStyle().
+				BorderForeground(lipgloss.Color("#5c6370")).
+				Border(lipgloss.NormalBorder(), true, true, true, true).
+				Padding(0, 1)
 )
 
 // RenderGlobalStats renders Screen 2: global network statistics.
 func RenderGlobalStats(state model.AppState, width, height int) string {
 	var b strings.Builder
 
-	b.WriteString(components.RenderHeader(state, "GLOBAL STATS", width))
+	b.WriteString(components.RenderHeader(state, i18n.GlobalStatsTitle, width))
 
 	// Card Styles
-	// Since we omitted Miners Online, we have 3 cards. Let's make them Width(24) and put all 3 in one row.
+	cardWidth := (width - 16) / 3 // 3 cards, margin left 4, padding and gaps
+	if cardWidth < 20 {
+		cardWidth = 20
+	}
 	cardStyle3 := components.BorderStyle.
 		Padding(0, 1).
-		Width(24)
+		Width(cardWidth)
 
 	var netHashStr, diffStr, blockHeightStr string
 
@@ -42,46 +57,31 @@ func RenderGlobalStats(state model.AppState, width, height int) string {
 	}
 
 	// Render Cards
-	card1 := cardStyle3.Render(fmt.Sprintf("%s\n\n%s", components.StyleDim.Render("Network Hashrate"), components.StyleValue.Render(netHashStr)))
-	card2 := cardStyle3.Render(fmt.Sprintf("%s\n\n%s", components.StyleDim.Render("Difficulty"), components.StyleValue.Render(diffStr)))
-	card3 := cardStyle3.Render(fmt.Sprintf("%s\n\n%s", components.StyleDim.Render("Block Height"), components.StyleValue.Render(blockHeightStr)))
+	card1 := cardStyle3.Render(fmt.Sprintf("%s\n\n%s", components.StyleDim.Render(i18n.NetworkHashrate), components.StyleValue.Render(netHashStr)))
+	card2 := cardStyle3.Render(fmt.Sprintf("%s\n\n%s", components.StyleDim.Render(i18n.Difficulty), components.StyleValue.Render(diffStr)))
+	card3 := cardStyle3.Render(fmt.Sprintf("%s\n\n%s", components.StyleDim.Render(i18n.BlockHeight), components.StyleValue.Render(blockHeightStr)))
 
 	row1 := lipgloss.JoinHorizontal(lipgloss.Top, card1, "  ", card2, "  ", card3)
 
-	// Indent grid to match mockup using lipgloss
-	gridStyle := lipgloss.NewStyle().MarginLeft(4)
-	
-	b.WriteString(gridStyle.Render(row1) + "\n\n\n")
+	b.WriteString(globalStatsGridStyle.Render(row1) + "\n\n\n")
 
 	// Lottery Section
-	lotteryCardStyle := lipgloss.NewStyle().
-		BorderForeground(lipgloss.Color("#5c6370")).
-		Border(lipgloss.NormalBorder(), true, true, true, true).
-		Padding(0, 1).
-		Width(76)
+	lotteryWidth := width - 8
+	if lotteryWidth < 50 {
+		lotteryWidth = 50
+	}
+	lotteryStyle := lotteryCardStyle.Width(lotteryWidth)
 
-	lotteryTitle := components.StyleLabel.Render("Loteria")
+	lotteryTitle := components.StyleLabel.Render(i18n.LotteryTitle)
 
 	var oddsVal1, oddsVal2, esperadoVal1 string
 	if state.NetworkDifficulty > 0 {
 		totalHashesForBlock := state.NetworkDifficulty * 4294967296.0 // Diff * 2^32
 		
 		// Create a readable representation for odds
-		oddsStr := fmt.Sprintf("%.0f", totalHashesForBlock)
-		if len(oddsStr) > 3 {
-			// Basic thousands separator (dot) for readability
-			var parts []string
-			for i := len(oddsStr); i > 0; i -= 3 {
-				start := i - 3
-				if start < 0 {
-					start = 0
-				}
-				parts = append([]string{oddsStr[start:i]}, parts...)
-			}
-			oddsStr = strings.Join(parts, ".")
-		}
+		oddsStr := format.FormatWithThousandSeparator(totalHashesForBlock)
 		
-		oddsVal1 = components.StyleLabel.Render(fmt.Sprintf("1 em %s", oddsStr))
+		oddsVal1 = components.StyleLabel.Render(fmt.Sprintf(i18n.OneIn, oddsStr))
 		oddsVal2 = lipgloss.NewStyle().Foreground(components.ColorRed).Render(fmt.Sprintf("≈ %.13f%%", 100.0/totalHashesForBlock))
 
 		if state.HashRate > 0 {
@@ -89,22 +89,11 @@ func RenderGlobalStats(state model.AppState, width, height int) string {
 			expectedYears := expectedSeconds / (365.25 * 24 * 3600)
 			
 			// Format years nicely
-			yearsStr := fmt.Sprintf("%.0f", expectedYears)
-			if len(yearsStr) > 3 {
-				var parts []string
-				for i := len(yearsStr); i > 0; i -= 3 {
-					start := i - 3
-					if start < 0 {
-						start = 0
-					}
-					parts = append([]string{yearsStr[start:i]}, parts...)
-				}
-				yearsStr = strings.Join(parts, ".")
-			}
+			yearsStr := format.FormatWithThousandSeparator(expectedYears)
 			
-			esperadoVal1 = components.StyleValue2.Render(fmt.Sprintf("~%s anos", yearsStr))
+			esperadoVal1 = components.StyleValue2.Render(fmt.Sprintf("~%s %s", yearsStr, i18n.Years))
 		} else {
-			esperadoVal1 = components.StyleValue2.Render("∞ anos")
+			esperadoVal1 = components.StyleValue2.Render(fmt.Sprintf("∞ %s", i18n.Years))
 		}
 	} else {
 		oddsVal1 = components.StyleLabel.Render("N/A")
@@ -112,19 +101,20 @@ func RenderGlobalStats(state model.AppState, width, height int) string {
 		esperadoVal1 = components.StyleValue2.Render("N/A")
 	}
 
-	oddsLabel := components.StyleDim.Render("odds hoje:   ")
+	oddsLabel := components.StyleDim.Render(i18n.OddsToday)
 	oddsLine := fmt.Sprintf("%s%s   %s", oddsLabel, oddsVal1, oddsVal2)
 
-	esperadoLabel := components.StyleDim.Render("esperado:    ")
-	esperadoVal2 := components.StyleDim.Render("com o hashrate atual")
+	esperadoLabel := components.StyleDim.Render(i18n.Expected)
+	esperadoVal2 := components.StyleDim.Render(i18n.WithCurrentHash)
 	esperadoLine := fmt.Sprintf("%s%s %s", esperadoLabel, esperadoVal1, esperadoVal2)
 
-	ultimaLabel := components.StyleDim.Render("última vez:  ")
-	ultimaVal := components.StyleValue.Render("nenhum bloco encontrado ainda")
+	ultimaLabel := components.StyleDim.Render(i18n.LastTime)
+	ultimaVal := components.StyleValue.Render(i18n.NoBlockFoundYet)
 	ultimaLine := fmt.Sprintf("%s%s", ultimaLabel, ultimaVal)
 
 	lotteryContent := fmt.Sprintf("%s\n\n%s\n%s\n%s", lotteryTitle, oddsLine, esperadoLine, ultimaLine)
-	b.WriteString(gridStyle.Render(lotteryCardStyle.Render(lotteryContent)))
+
+	b.WriteString(globalStatsGridStyle.Render(lotteryStyle.Render(lotteryContent)))
 
 	// Pad to height
 	lines := strings.Split(b.String(), "\n")

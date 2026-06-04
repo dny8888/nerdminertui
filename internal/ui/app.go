@@ -26,6 +26,14 @@ type SaveConfigMsg struct {
 	Config *model.AppState
 }
 
+type ClearToastMsg struct{}
+
+func showToastCmd() tea.Cmd {
+	return tea.Tick(time.Second*3, func(_ time.Time) tea.Msg {
+		return ClearToastMsg{}
+	})
+}
+
 // AppModel implements tea.Model for the main application.
 type AppModel struct {
 	state          model.AppState
@@ -37,6 +45,9 @@ type AppModel struct {
 	graphScale     float64
 	width          int
 	height         int
+	toastMessage   string
+	toastIsErr     bool
+	showHelp       bool
 }
 
 func formatThreeDigits(v float64) string {
@@ -93,6 +104,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.String() == "ctrl+c" || m.state.Screen != model.ScreenSettings {
 				return m, tea.Quit
 			}
+		case "?":
+			m.showHelp = !m.showHelp
 		case "ctrl+s":
 			// Update state from inputs before saving
 			m.state.BTCAddress = m.settings.Inputs[0].Value()
@@ -112,21 +125,21 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Notify main loop to save config and restart worker
 			cfgCopy := m.state
 			return m, func() tea.Msg { return SaveConfigMsg{Config: &cfgCopy} }
-		case "up", "down", "left", "right":
+		case "up", "down", "left", "right", "shift+tab":
 			if m.state.Screen == model.ScreenSettings {
 				s := msg.String()
 				
 				// Handle focus switching
-				if s == "up" || s == "left" {
+				if s == "up" || s == "left" || s == "shift+tab" {
 					m.settings.FocusIndex--
 				} else {
 					m.settings.FocusIndex++
 				}
 
-				if m.settings.FocusIndex > 6 {
+				if m.settings.FocusIndex > screens.FocusMax {
 					m.settings.FocusIndex = 0
 				} else if m.settings.FocusIndex < 0 {
-					m.settings.FocusIndex = 6
+					m.settings.FocusIndex = screens.FocusMax
 				}
 
 				var cmds []tea.Cmd
@@ -134,7 +147,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					isFocused := false
 					if i < 4 && m.settings.FocusIndex == i {
 						isFocused = true
-					} else if i == 4 && m.settings.FocusIndex == 6 {
+					} else if i == 4 && m.settings.FocusIndex == screens.FocusCPUTarget {
 						isFocused = true
 					}
 
@@ -152,9 +165,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case " ", "enter":
 			if m.state.Screen == model.ScreenSettings {
-				if m.settings.FocusIndex == 4 {
+				if m.settings.FocusIndex == screens.FocusMockMining {
 					m.settings.MockMining = !m.settings.MockMining
-				} else if m.settings.FocusIndex == 5 {
+				} else if m.settings.FocusIndex == screens.FocusDebugMode {
 					m.settings.DebugMode = !m.settings.DebugMode
 				}
 			}
@@ -163,12 +176,18 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "+", "=":
 			m.state = m.state.WithCPUTarget(0.05)
 			if m.throttleCh != nil {
-				m.throttleCh <- m.state.CPUTarget
+				select {
+				case m.throttleCh <- m.state.CPUTarget:
+				default:
+				}
 			}
 		case "-", "_":
 			m.state = m.state.WithCPUTarget(-0.05)
 			if m.throttleCh != nil {
-				m.throttleCh <- m.state.CPUTarget
+				select {
+				case m.throttleCh <- m.state.CPUTarget:
+				default:
+				}
 			}
 		}
 
@@ -261,12 +280,24 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state.BlockHeight = uint32(msg.BlockHeight)
 
 	case worker.MinerErrorMsg:
-		// Ignoring for now or handle appropriately
+		m.toastMessage = fmt.Sprintf("Miner erro: %v", msg.Err)
+		m.toastIsErr = true
+		cmds = append(cmds, showToastCmd())
 	case worker.PoolErrorMsg:
-		// Ignoring or handle
+		m.toastMessage = fmt.Sprintf("Pool erro: %v", msg.Err)
+		m.toastIsErr = true
+		cmds = append(cmds, showToastCmd())
 	case worker.ConnectionStatusMsg:
 		m.state.ConnectionStatus = msg.Status
 		m.state.PoolConnected = (msg.Status == "Conectado")
+		
+		if msg.Status != "Conectado" && msg.Status != "Desconectado" && msg.Status != "Mock" {
+			m.toastMessage = fmt.Sprintf("Status: %s", msg.Status)
+			m.toastIsErr = false
+			cmds = append(cmds, showToastCmd())
+		}
+	case ClearToastMsg:
+		m.toastMessage = ""
 	case SaveConfigMsg:
 		msg.Config.ConfigValid = true
 		if msg.Config.MockMining {
@@ -277,6 +308,10 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msg.Config.ConnectionStatus = "Desconectado"
 		}
 		m.state = *msg.Config
+		
+		m.toastMessage = "Configuração salva e worker reiniciado"
+		m.toastIsErr = false
+		cmds = append(cmds, showToastCmd())
 		
 		// Use a goroutine to not block the UI thread
 		go func(stateCopy model.AppState) {
@@ -304,16 +339,51 @@ func (m AppModel) View() string {
 
 	var content string
 	switch m.state.Screen {
-	case 0:
+	case model.ScreenDashboard:
 		content = screens.RenderDashboard(m.state, m.hashChart.View(), m.graphUnit, m.width, m.height-2)
-	case 1:
+	case model.ScreenGlobalStats:
 		content = screens.RenderGlobalStats(m.state, m.width, m.height-1)
-	case 2:
+	case model.ScreenSettings:
 		content = screens.RenderSettings(m.state, m.settings, m.width, m.height-1)
 	default:
 		content = "Unknown Screen"
 	}
 
 	statusBar := components.RenderStatusBar(m.state, m.width)
+	
+	// If there's a toast, render it over the content at the bottom
+	if m.toastMessage != "" {
+		var toastStyle lipgloss.Style
+		if m.toastIsErr {
+			toastStyle = lipgloss.NewStyle().Background(lipgloss.Color("#d70000")).Foreground(lipgloss.Color("#ffffff")).Padding(0, 1)
+		} else {
+			toastStyle = lipgloss.NewStyle().Background(lipgloss.Color("#005f00")).Foreground(lipgloss.Color("#ffffff")).Padding(0, 1)
+		}
+		
+		toastView := toastStyle.Render(m.toastMessage)
+		// Place the toast at the bottom right of the content area
+		content = lipgloss.Place(m.width, m.height-1, lipgloss.Right, lipgloss.Bottom, toastView, lipgloss.WithWhitespaceChars(" "), lipgloss.WithWhitespaceForeground(lipgloss.Color("0")))
+	}
+
+	if m.showHelp {
+		helpTitle := lipgloss.NewStyle().Foreground(lipgloss.Color("#ffa500")).Bold(true).Render("KEYBINDINGS")
+		helpText := `
+q, ctrl+c   Quit
+tab         Next screen
+shift+tab   Previous input (settings)
++ / -       Increase/Decrease CPU Target
+ctrl+s      Save config (settings)
+?           Toggle this help screen
+`
+		helpBox := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#ffa500")).
+			Padding(1, 3).
+			Background(lipgloss.Color("#1e1e1e")).
+			Render(helpTitle + helpText)
+
+		content = lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, helpBox, lipgloss.WithWhitespaceChars(" "), lipgloss.WithWhitespaceForeground(lipgloss.Color("0")))
+	}
+
 	return fmt.Sprintf("%s\n%s", content, statusBar)
 }

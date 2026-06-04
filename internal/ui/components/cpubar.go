@@ -21,10 +21,7 @@ var (
 // RenderCPUBar returns a textual bar representing CPU usage.
 func RenderCPUBar(state model.AppState, width int) string {
 	target := state.CPUTarget
-	actual := state.CPUActual // If we implement it, otherwise 0
-	if actual == 0 && target > 0 {
-		actual = target - 0.01 // fake it for now to look like the image
-	}
+	actual := state.CPUActual
 	
 	totalBlocks := width - 40 // adjusted to leave room for the text "cpu [] 75% target 74% actual [+/-]"
 	if totalBlocks < 10 {
