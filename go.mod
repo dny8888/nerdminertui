@@ -1,6 +1,6 @@
 module github.com/nerdminertui/nerdtui
 
-go 1.26
+go 1.24
 
 require (
 	github.com/NimbleMarkets/ntcharts v0.5.1
