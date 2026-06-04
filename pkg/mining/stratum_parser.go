@@ -67,14 +67,61 @@ func ParseStratumJob(jobID, prevhashHex, coinb1Hex, coinb2Hex, versionHex, nbits
 	target := TargetFromDifficulty(poolDifficulty)
 
 	return &Job{
-		Header:         header,
-		Target:         target,
-		ExtraNonce:     extranonce2,
-		Height:         0,
-		JobID:          jobID,
-		Extranonce2Hex: extranonce2Hex,
-		NtimeHex:       ntimeHex,
+		Header:          header,
+		Target:          target,
+		ExtraNonce:      extranonce2,
+		Height:          0,
+		JobID:           jobID,
+		Extranonce2Hex:  extranonce2Hex,
+		NtimeHex:        ntimeHex,
+		Coinb1Hex:       coinb1Hex,
+		Coinb2Hex:       coinb2Hex,
+		Extranonce1Hex:  extranonce1Hex,
+		MerkleBranchHex: merkleBranchHex,
+		Extranonce2Size: extranonce2Size,
+		VersionLE:       versionLE,
+		PrevhashLE:      prevhashLE,
+		NtimeLE:         ntimeLE,
+		NbitsLE:         nbitsLE,
 	}, nil
+}
+
+// RebuildHeaderWithExtraNonce2 rebuilds the block header with a new extranonce2.
+// This allows different workers to have completely different Merkle Roots,
+// avoiding any nonce collision without requiring range coordination.
+func RebuildHeaderWithExtraNonce2(job *Job, newExtraNonce2Hex string) ([]byte, error) {
+	// Build Coinbase
+	coinbaseHex := job.Coinb1Hex + job.Extranonce1Hex + newExtraNonce2Hex + job.Coinb2Hex
+	coinbaseBytes, err := hex.DecodeString(coinbaseHex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid coinbase hex: %v", err)
+	}
+
+	// Coinbase Hash
+	coinbaseHash := SHA256d(coinbaseBytes)
+
+	// Merkle Root
+	merkleRoot := coinbaseHash
+	for _, branchHex := range job.MerkleBranchHex {
+		branchBytes, err := hex.DecodeString(branchHex)
+		if err != nil {
+			return nil, fmt.Errorf("invalid merkle branch hex: %v", err)
+		}
+		payload := make([]byte, 64)
+		copy(payload[0:32], merkleRoot[:])
+		copy(payload[32:64], branchBytes)
+		merkleRoot = SHA256d(payload)
+	}
+
+	// Build the 76-byte Header (without nonce)
+	header := make([]byte, 76)
+	copy(header[0:4], job.VersionLE)
+	copy(header[4:36], job.PrevhashLE)
+	copy(header[36:68], merkleRoot[:])
+	copy(header[68:72], job.NtimeLE)
+	copy(header[72:76], job.NbitsLE)
+
+	return header, nil
 }
 
 func reverseBytes(data []byte) []byte {

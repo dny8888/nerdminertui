@@ -3,6 +3,7 @@ package mining
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"hash"
 )
 
 // SHA256d computes the double SHA-256 hash of the input data.
@@ -14,8 +15,11 @@ func SHA256d(data []byte) [32]byte {
 // MinerHashState holds precomputed SHA-256 midstate to optimize hashing
 // by skipping the first 64 bytes of the block header.
 type MinerHashState struct {
-	payload [80]byte
-	state   []byte
+	payload     [80]byte
+	state       []byte
+	hasher      hash.Hash
+	unmarshaler interface{ UnmarshalBinary([]byte) error }
+	sumBuf      []byte
 }
 
 // NewMinerHashState initializes a zero-allocation hashing state for a given block header (76 bytes).
@@ -25,12 +29,17 @@ func NewMinerHashState(header []byte) *MinerHashState {
 	copy(m.payload[:76], header)
 
 	// Precompute the midstate for the first 64 bytes
-	hasher := sha256.New()
-	hasher.Write(m.payload[:64])
+	h := sha256.New()
+	h.Write(m.payload[:64])
 	
 	// MarshalBinary returns the internal state of the hash
 	// We save it so we can Unmarshal it rapidly in the hot loop
-	m.state, _ = hasher.(interface{ MarshalBinary() ([]byte, error) }).MarshalBinary()
+	m.state, _ = h.(interface{ MarshalBinary() ([]byte, error) }).MarshalBinary()
+	
+	// Create a dedicated hasher instance for the hot loop
+	m.hasher = sha256.New()
+	m.unmarshaler = m.hasher.(interface{ UnmarshalBinary([]byte) error })
+	m.sumBuf = make([]byte, 0, 32)
 	
 	return m
 }
@@ -38,17 +47,15 @@ func NewMinerHashState(header []byte) *MinerHashState {
 // HashNonce computes the double SHA-256 hash for a specific nonce using the precomputed midstate.
 // This function performs 0 heap allocations and is highly optimized.
 func (m *MinerHashState) HashNonce(nonce uint32) [32]byte {
-	var firstPayload [32]byte
 	var finalHash [32]byte
 	
 	binary.LittleEndian.PutUint32(m.payload[76:80], nonce)
 	
-	h := sha256.New()
-	unmarshaler := h.(interface{ UnmarshalBinary([]byte) error })
-	unmarshaler.UnmarshalBinary(m.state)
-	h.Write(m.payload[64:80])
+	// Zero-allocation: reuse the pre-allocated hasher and unmarshaler
+	m.unmarshaler.UnmarshalBinary(m.state)
+	m.hasher.Write(m.payload[64:80])
 	
-	firstSlice := h.Sum(firstPayload[:0])
+	firstSlice := m.hasher.Sum(m.sumBuf[:0])
 	copy(finalHash[:], firstSlice)
 	
 	return sha256.Sum256(finalHash[:])

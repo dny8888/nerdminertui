@@ -10,4 +10,15 @@ type Job struct {
 	JobID          string
 	Extranonce2Hex string
 	NtimeHex       string
+
+	// Raw stratum parameters needed to rebuild the header for multi-worker entropy
+	Coinb1Hex       string
+	Coinb2Hex       string
+	Extranonce1Hex  string
+	MerkleBranchHex []string
+	Extranonce2Size int
+	VersionLE       []byte
+	PrevhashLE      []byte
+	NtimeLE         []byte
+	NbitsLE         []byte
 }

@@ -11,6 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/nerdminertui/nerdtui/pkg/mining"
+	"github.com/nerdminertui/nerdtui/pkg/trivia"
 )
 
 // MinerWorker manages the background hashing loop and CPU throttling.
@@ -70,6 +71,7 @@ func (w *MinerWorker) Run(ctx context.Context) {
 			var lastJobID string
 			var hashState *mining.MinerHashState
 			var currentNonce uint32
+			var currentSpaceWord string
 			
 			for {
 				select {
@@ -88,8 +90,23 @@ func (w *MinerWorker) Run(ctx context.Context) {
 				
 				if lj.JobID != lastJobID {
 					lastJobID = lj.JobID
-					hashState = mining.NewMinerHashState(lj.Header)
-					currentNonce = lj.StartNonce + uint32(workerID)
+					
+					// Generate a unique extra nonce 2 for this specific worker using astronomy trivia
+					currentSpaceWord = trivia.GetRandomSpaceWordHex(lj.Extranonce2Size)
+					if currentSpaceWord == "" {
+						currentSpaceWord = lj.Extranonce2Hex // fallback to pool's default
+					}
+					
+					// Rebuild the header so this worker has a completely unique Merkle Root
+					newHeader, err := mining.RebuildHeaderWithExtraNonce2(&lj.Job, currentSpaceWord)
+					if err != nil {
+						log.Printf("[Miner] Failed to rebuild header: %v", err)
+						newHeader = lj.Header
+						currentSpaceWord = lj.Extranonce2Hex
+					}
+					
+					hashState = mining.NewMinerHashState(newHeader)
+					currentNonce = rand.Uint32() // fully random start since roots are unique!
 				}
 				
 				cpuTarget := w.cpuTarget.Load().(float64)
@@ -98,11 +115,11 @@ func (w *MinerWorker) Run(ctx context.Context) {
 				for b := 0; b < BatchSize; b++ {
 					hash := hashState.HashNonce(currentNonce)
 					if mining.MeetsTarget(hash, lj.Target) {
-						log.Printf("[Miner] Found valid share! JobID=%s, Nonce=%d, Hash=%x", lj.JobID, currentNonce, hash)
-						go func(n uint32, h [32]byte) {
+						log.Printf("[Miner] Found valid share! JobID=%s, Word=%s, Nonce=%d, Hash=%x", lj.JobID, currentSpaceWord, currentNonce, hash)
+						go func(sw string, n uint32, h [32]byte) {
 							submitCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 							defer cancel()
-							accepted, err := w.client.SubmitShare(submitCtx, n, h)
+							accepted, err := w.client.SubmitShare(submitCtx, sw, n, h)
 							if err != nil {
 								select {
 								case w.outCh <- PoolErrorMsg{Err: err}:
@@ -114,9 +131,9 @@ func (w *MinerWorker) Run(ctx context.Context) {
 								case <-ctx.Done():
 								}
 							}
-						}(currentNonce, hash)
+						}(currentSpaceWord, currentNonce, hash)
 					}
-					currentNonce += uint32(numCPU) // Stride by number of CPUs
+					currentNonce++ // Sequential increment is safe since Merkle Root is unique
 				}
 				
 				workDur := time.Since(start)

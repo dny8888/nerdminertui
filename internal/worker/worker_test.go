@@ -123,7 +123,7 @@ func TestClientsStub(t *testing.T) {
 	httpC := &MempoolClient{BaseURL: "https://mempool.space"}
 	_, err := httpC.FetchStats(ctx)
 	assert.NoError(t, err)
-	_, err = httpC.SubmitShare(ctx, 0, [32]byte{})
+	_, err = httpC.SubmitShare(ctx, "00", 0, [32]byte{})
 	assert.NoError(t, err)
 	http.DefaultClient.CloseIdleConnections()
 
@@ -132,7 +132,7 @@ func TestClientsStub(t *testing.T) {
 	_, err = stratC.FetchStats(ctx)
 	assert.NoError(t, err)
 	// It should error if no job is active
-	_, err = stratC.SubmitShare(ctx, 0, [32]byte{})
+	_, err = stratC.SubmitShare(ctx, "00", 0, [32]byte{})
 	assert.Error(t, err)
 }
 
@@ -284,7 +284,7 @@ func TestStratumPoolClient_SubmitShareNonceFormat(t *testing.T) {
 		}
 	}()
 
-	_, err = client.SubmitShare(context.Background(), 0x12345678, [32]byte{})
+	_, err = client.SubmitShare(context.Background(), "00000001", 0x12345678, [32]byte{})
 	require.NoError(t, err)
 	conn.Close()
 
@@ -304,7 +304,7 @@ func TestStratumPoolClient_SubmitShareNonceFormat(t *testing.T) {
 
 func TestStratumPoolClient_SubmitShareNoJob(t *testing.T) {
 	client := &StratumPoolClient{}
-	_, err := client.SubmitShare(context.Background(), 0, [32]byte{})
+	_, err := client.SubmitShare(context.Background(), "00", 0, [32]byte{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no active job")
 }
@@ -461,4 +461,47 @@ func TestStratumPoolClient_SuggestDifficultyOnConnect(t *testing.T) {
 	assert.Contains(t, lines[2], "0.00015")
 }
 
+// ---------------------------------------------------------------------------
+// handleNotification — extended stratum commands
+// ---------------------------------------------------------------------------
 
+func TestStratumPoolClient_HandleSetExtranonce(t *testing.T) {
+	client := &StratumPoolClient{
+		extranonce1:     "old",
+		extranonce2Size: 4,
+		extranonce2:     10,
+	}
+
+	notif := JSONRPCNotification{
+		Method: "mining.set_extranonce",
+		Params: []byte(`["new", 8]`),
+	}
+	client.handleNotification(notif)
+
+	client.mu.Lock()
+	assert.Equal(t, "new", client.extranonce1)
+	assert.Equal(t, 8, client.extranonce2Size)
+	assert.Equal(t, uint32(0), client.extranonce2)
+	client.mu.Unlock()
+}
+
+func TestStratumPoolClient_HandleClientReconnect(t *testing.T) {
+	client := &StratumPoolClient{
+		Address: "oldhost",
+		Port:    1234,
+	}
+
+	notif := JSONRPCNotification{
+		Method: "client.reconnect",
+		Params: []byte(`["newhost", 4321, 0]`), // 0 wait time to run immediately in test
+	}
+	client.handleNotification(notif)
+
+	// wait a bit for the background goroutine
+	time.Sleep(50 * time.Millisecond)
+
+	client.mu.Lock()
+	assert.Equal(t, "newhost", client.Address)
+	assert.Equal(t, 4321, client.Port)
+	client.mu.Unlock()
+}

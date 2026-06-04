@@ -21,7 +21,7 @@ import (
 // PoolClient abstracts communication with the pool.
 type PoolClient interface {
 	FetchStats(ctx context.Context) (PoolStatsMsg, error)
-	SubmitShare(ctx context.Context, nonce uint32, hash [32]byte) (bool, error)
+	SubmitShare(ctx context.Context, extranonce2Hex string, nonce uint32, hash [32]byte) (bool, error)
 	Run(ctx context.Context)
 }
 
@@ -38,7 +38,7 @@ func (c *MockPoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
 }
 
 // SubmitShare unconditionally accepts the mock share.
-func (c *MockPoolClient) SubmitShare(ctx context.Context, nonce uint32, hash [32]byte) (bool, error) {
+func (c *MockPoolClient) SubmitShare(ctx context.Context, extranonce2Hex string, nonce uint32, hash [32]byte) (bool, error) {
 	return true, nil
 }
 
@@ -92,7 +92,7 @@ func (c *MempoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
 }
 
 // SubmitShare is not implemented for HTTP client.
-func (c *MempoolClient) SubmitShare(ctx context.Context, nonce uint32, hash [32]byte) (bool, error) {
+func (c *MempoolClient) SubmitShare(ctx context.Context, extranonce2Hex string, nonce uint32, hash [32]byte) (bool, error) {
 	return false, nil
 }
 
@@ -346,6 +346,55 @@ func (c *StratumPoolClient) handleNotification(notif JSONRPCNotification) {
 		return
 	}
 
+	if notif.Method == "mining.set_extranonce" {
+		var params []interface{}
+		if err := json.Unmarshal(notif.Params, &params); err == nil && len(params) >= 2 {
+			en1, ok1 := params[0].(string)
+			en2SizeFloat, ok2 := params[1].(float64)
+			if ok1 && ok2 {
+				c.mu.Lock()
+				c.extranonce1 = en1
+				c.extranonce2Size = int(en2SizeFloat)
+				c.extranonce2 = 0 // Reset sequence
+				c.mu.Unlock()
+				log.Printf("[Stratum] Extranonce updated via mining.set_extranonce: %s", en1)
+			}
+		}
+		return
+	}
+
+	if notif.Method == "client.reconnect" {
+		var params []interface{}
+		if err := json.Unmarshal(notif.Params, &params); err == nil && len(params) >= 3 {
+			host, ok1 := params[0].(string)
+			portFloat, ok2 := params[1].(float64)
+			waitTime, ok3 := params[2].(float64)
+			if ok1 && ok2 && ok3 {
+				log.Printf("[Stratum] Received client.reconnect to %s:%d, waiting %d seconds", host, int(portFloat), int(waitTime))
+				
+				// Reconnect logic runs in background so it doesn't block the scanner
+				go func() {
+					time.Sleep(time.Duration(waitTime) * time.Second)
+					
+					c.mu.Lock()
+					// Update connection targets
+					if host != "" {
+						c.Address = host
+					}
+					c.Port = int(portFloat)
+					
+					// Force closing current connection which triggers connectAndLoop to return
+					// and Run() to attempt a new connection with updated address/port
+					if c.conn != nil {
+						c.conn.Close()
+					}
+					c.mu.Unlock()
+				}()
+			}
+		}
+		return
+	}
+
 	if notif.Method == "mining.notify" {
 		var params []interface{}
 		if err := json.Unmarshal(notif.Params, &params); err == nil && len(params) >= 9 {
@@ -425,7 +474,7 @@ func (c *StratumPoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error
 }
 
 // SubmitShare submits mining results over TCP Stratum.
-func (c *StratumPoolClient) SubmitShare(ctx context.Context, nonce uint32, hash [32]byte) (bool, error) {
+func (c *StratumPoolClient) SubmitShare(ctx context.Context, extranonce2Hex string, nonce uint32, hash [32]byte) (bool, error) {
 	worker := c.BTCAddress
 	if c.WorkerName != "" {
 		worker = worker + "." + c.WorkerName
@@ -443,7 +492,7 @@ func (c *StratumPoolClient) SubmitShare(ctx context.Context, nonce uint32, hash 
 
 	log.Printf("[Stratum] Submitting share: JobID=%s, Nonce=%s, Ntime=%s", job.JobID, nonceHex, job.NtimeHex)
 
-	resp, err := c.sendAndWait("mining.submit", []interface{}{worker, job.JobID, job.Extranonce2Hex, job.NtimeHex, nonceHex}, 10*time.Second)
+	resp, err := c.sendAndWait("mining.submit", []interface{}{worker, job.JobID, extranonce2Hex, job.NtimeHex, nonceHex}, 10*time.Second)
 	if err != nil {
 		log.Printf("[Stratum] Share submission error: %v", err)
 		return false, err
