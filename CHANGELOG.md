@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.1.0] - 2026-06-04
+### Added
+- Support for `client.reconnect` method in the Stratum pool client.
+- Dynamic ExtraNonce2 entropy generator (`pkg/trivia`) using space/astronomy words to avoid nonce collisions.
+- Multi-worker block header rebuilding with unique extranonce2.
+- Benchmark tests for block hashing methods.
+
+### Changed
+- Refactored mining hash loop (`pkg/mining/hash.go`) to achieve zero heap allocations per hash, improving performance.
+
+## [1.0.0] - 2026-06-02
 ### Added
 - Core mining engine based on NerdMiner original logic
 - Bubbletea TUI with dashboard and settings screens
