@@ -3,6 +3,7 @@ package mining
 import (
 	"encoding/binary"
 	"math/big"
+	"sync"
 )
 
 // MeetsTarget compares a hash against a target byte-by-byte (Big-Endian).
@@ -48,10 +49,14 @@ func init() {
 	genesisTargetInt = new(big.Int).SetBytes(genesisTargetBytes[:])
 }
 
+var bigIntPool = sync.Pool{New: func() interface{} { return new(big.Int) }}
+var bigFloatPool = sync.Pool{New: func() interface{} { return new(big.Float) }}
+
 // DifficultyFromHash calculates the relative difficulty of a given hash
 // compared to the Genesis Target. If hash is 0, it returns a maximum float64 value.
 func DifficultyFromHash(hash [32]byte) float64 {
-	hashInt := new(big.Int).SetBytes(hash[:])
+	hashInt := bigIntPool.Get().(*big.Int).SetBytes(hash[:])
+	defer bigIntPool.Put(hashInt)
 	
 	if hashInt.Sign() == 0 {
 		return 0 // Avoid division by zero, though 0 hash is infinite diff.
@@ -59,10 +64,15 @@ func DifficultyFromHash(hash [32]byte) float64 {
 
 	// diff = genesisTarget / hash
 	// Since we need float precision, we convert to big.Float
-	genFloat := new(big.Float).SetInt(genesisTargetInt)
-	hashFloat := new(big.Float).SetInt(hashInt)
+	genFloat := bigFloatPool.Get().(*big.Float).SetInt(genesisTargetInt)
+	defer bigFloatPool.Put(genFloat)
 
-	diffFloat := new(big.Float).Quo(genFloat, hashFloat)
+	hashFloat := bigFloatPool.Get().(*big.Float).SetInt(hashInt)
+	defer bigFloatPool.Put(hashFloat)
+
+	diffFloat := bigFloatPool.Get().(*big.Float).Quo(genFloat, hashFloat)
+	defer bigFloatPool.Put(diffFloat)
+
 	diff, _ := diffFloat.Float64()
 	return diff
 }
@@ -74,11 +84,16 @@ func TargetFromDifficulty(diff float64) [32]byte {
 	}
 	
 	// target = genesisTarget / diff
-	genFloat := new(big.Float).SetInt(genesisTargetInt)
-	diffFloat := big.NewFloat(diff)
+	genFloat := bigFloatPool.Get().(*big.Float).SetInt(genesisTargetInt)
+	defer bigFloatPool.Put(genFloat)
+
+	diffFloat := bigFloatPool.Get().(*big.Float).SetFloat64(diff)
+	defer bigFloatPool.Put(diffFloat)
 	
-	targetFloat := new(big.Float).Quo(genFloat, diffFloat)
-	targetInt, _ := targetFloat.Int(nil)
+	targetFloat := bigFloatPool.Get().(*big.Float).Quo(genFloat, diffFloat)
+	defer bigFloatPool.Put(targetFloat)
+
+	targetInt, _ := targetFloat.Int(nil) // allocating Int is small, but avoids larger Float allocs
 	
 	var targetBytes [32]byte
 	b := targetInt.Bytes()

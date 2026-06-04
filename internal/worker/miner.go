@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/hex"
 	"log"
 	"math/rand/v2"
 	"runtime"
@@ -95,6 +96,13 @@ func (w *MinerWorker) Run(ctx context.Context) {
 					currentSpaceWord = trivia.GetRandomSpaceWordHex(lj.Extranonce2Size)
 					if currentSpaceWord == "" {
 						currentSpaceWord = lj.Extranonce2Hex // fallback to pool's default
+					} else {
+						// Inject worker ID into the last byte of the extranonce2 to guarantee
+						// unique merkle roots across local workers (L4)
+						if b, _ := hex.DecodeString(currentSpaceWord); len(b) > 0 {
+							b[len(b)-1] = byte(workerID)
+							currentSpaceWord = hex.EncodeToString(b)
+						}
 					}
 					
 					// Rebuild the header so this worker has a completely unique Merkle Root
@@ -157,6 +165,7 @@ func (w *MinerWorker) Run(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
+	lastTick := time.Now()
 	for {
 		select {
 		case <-ctx.Done():
@@ -167,11 +176,15 @@ func (w *MinerWorker) Run(ctx context.Context) {
 		case newJob := <-w.jobCh:
 			currentJob.Store(localJob{Job: newJob, StartNonce: rand.Uint32()})
 		case <-ticker.C:
+			now := time.Now()
+			elapsed := now.Sub(lastTick).Seconds()
+			lastTick = now
+			
 			hashes := totalHashes.Swap(0)
 			wt := totalWorkTime.Swap(0)
 			
-			if hashes > 0 {
-				hps := float64(hashes)
+			if hashes > 0 && elapsed > 0 {
+				hps := float64(hashes) / elapsed
 				cpuActual := (float64(wt) / float64(time.Second)) / float64(numCPU)
 				if cpuActual > 1.0 {
 					cpuActual = 1.0
@@ -180,6 +193,7 @@ func (w *MinerWorker) Run(ctx context.Context) {
 				select {
 				case w.outCh <- HashRateMsg{HPS: hps, CPUActual: cpuActual}:
 				case <-ctx.Done():
+				default:
 				}
 			}
 		}

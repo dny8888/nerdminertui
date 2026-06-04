@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -119,8 +121,17 @@ func TestPollCmd(t *testing.T) {
 func TestClientsStub(t *testing.T) {
 	ctx := context.Background()
 
-	// MempoolClient
-	httpC := &MempoolClient{BaseURL: "https://mempool.space"}
+	// MempoolClient - Use httptest.NewServer to avoid real network requests
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "height") {
+			w.Write([]byte("850000"))
+		} else {
+			w.Write([]byte(`{"currentHashrate": 100, "currentDifficulty": 100}`))
+		}
+	}))
+	defer ts.Close()
+
+	httpC := &MempoolClient{BaseURL: ts.URL}
 	_, err := httpC.FetchStats(ctx)
 	assert.NoError(t, err)
 	_, err = httpC.SubmitShare(ctx, "00", 0, [32]byte{})
@@ -320,7 +331,7 @@ func TestStratumPoolClient_HandleSetDifficulty(t *testing.T) {
 		Method: "mining.set_difficulty",
 		Params: []byte(`[4096]`),
 	}
-	client.handleNotification(notif)
+	client.handleNotification(context.Background(), notif)
 
 	client.mu.Lock()
 	assert.Equal(t, 4096.0, client.difficulty)
@@ -334,7 +345,7 @@ func TestStratumPoolClient_HandleSetDifficultyFloat(t *testing.T) {
 		Method: "mining.set_difficulty",
 		Params: []byte(`[0.0001]`),
 	}
-	client.handleNotification(notif)
+	client.handleNotification(context.Background(), notif)
 
 	client.mu.Lock()
 	assert.InDelta(t, 0.0001, client.difficulty, 0.00001)
@@ -388,7 +399,7 @@ func TestStratumPoolClient_HandleNotifyDeliversJob(t *testing.T) {
 			true
 		]`),
 	}
-	client.handleNotification(notif)
+	client.handleNotification(context.Background(), notif)
 
 	select {
 	case job := <-jobCh:
@@ -476,7 +487,7 @@ func TestStratumPoolClient_HandleSetExtranonce(t *testing.T) {
 		Method: "mining.set_extranonce",
 		Params: []byte(`["new", 8]`),
 	}
-	client.handleNotification(notif)
+	client.handleNotification(context.Background(), notif)
 
 	client.mu.Lock()
 	assert.Equal(t, "new", client.extranonce1)
@@ -495,7 +506,7 @@ func TestStratumPoolClient_HandleClientReconnect(t *testing.T) {
 		Method: "client.reconnect",
 		Params: []byte(`["newhost", 4321, 0]`), // 0 wait time to run immediately in test
 	}
-	client.handleNotification(notif)
+	client.handleNotification(context.Background(), notif)
 
 	// wait a bit for the background goroutine
 	time.Sleep(50 * time.Millisecond)

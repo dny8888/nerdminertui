@@ -23,9 +23,4 @@ type JSONRPCNotification struct {
 	Params json.RawMessage `json:"params"`
 }
 
-// SubscribeResult is the result of mining.subscribe
-type SubscribeResult []interface{}
 
-// NotifyParams represents the params array of a mining.notify request.
-// ["job_id", "prevhash", "coinb1", "coinb2", [merkle_branches], "version", "nbits", "ntime", clean_jobs]
-type NotifyParams []interface{}

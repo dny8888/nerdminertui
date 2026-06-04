@@ -11,35 +11,23 @@ func ParseStratumJob(jobID, prevhashHex, coinb1Hex, coinb2Hex, versionHex, nbits
 	formatStr := fmt.Sprintf("%%0%dx", extranonce2Size*2)
 	extranonce2Hex := fmt.Sprintf(formatStr, extranonce2)
 
-	// Build Coinbase
-	coinbaseHex := coinb1Hex + extranonce1Hex + extranonce2Hex + coinb2Hex
-	coinbaseBytes, err := hex.DecodeString(coinbaseHex)
-	if err != nil {
-		return nil, fmt.Errorf("invalid coinbase hex: %v", err)
-	}
-
-	// Coinbase Hash
-	coinbaseHash := SHA256d(coinbaseBytes)
-
-	// Merkle Root
-	merkleRoot := coinbaseHash
-	for _, branchHex := range merkleBranchHex {
-		branchBytes, err := hex.DecodeString(branchHex)
-		if err != nil {
-			return nil, fmt.Errorf("invalid merkle branch hex: %v", err)
-		}
-		// Hash(merkleRoot + branchBytes)
-		payload := make([]byte, 64)
-		copy(payload[0:32], merkleRoot[:])
-		copy(payload[32:64], branchBytes)
-		merkleRoot = SHA256d(payload)
-	}
-
 	// Decode Header Fields
-	versionBytes, _ := hex.DecodeString(versionHex)
-	prevhashBytes, _ := hex.DecodeString(prevhashHex)
-	ntimeBytes, _ := hex.DecodeString(ntimeHex)
-	nbitsBytes, _ := hex.DecodeString(nbitsHex)
+	versionBytes, err := hex.DecodeString(versionHex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid version hex: %v", err)
+	}
+	prevhashBytes, err := hex.DecodeString(prevhashHex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid prevhash hex: %v", err)
+	}
+	ntimeBytes, err := hex.DecodeString(ntimeHex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid ntime hex: %v", err)
+	}
+	nbitsBytes, err := hex.DecodeString(nbitsHex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid nbits hex: %v", err)
+	}
 
 	// Endianness handling for Stratum
 	// Stratum sends prevhash, version, ntime, nbits in big-endian hex (usually),
@@ -54,13 +42,10 @@ func ParseStratumJob(jobID, prevhashHex, coinb1Hex, coinb2Hex, versionHex, nbits
 	// NOT reverse all 32 bytes.
 	prevhashLE := swapWords(prevhashBytes, 4)
 
-	// Build the 76-byte Header (without nonce)
-	header := make([]byte, 76)
-	copy(header[0:4], versionLE)
-	copy(header[4:36], prevhashLE)
-	copy(header[36:68], merkleRoot[:])
-	copy(header[68:72], ntimeLE)
-	copy(header[72:76], nbitsLE)
+	header, err := buildHeader(versionLE, prevhashLE, ntimeLE, nbitsLE, coinb1Hex, extranonce1Hex, extranonce2Hex, coinb2Hex, merkleBranchHex)
+	if err != nil {
+		return nil, err
+	}
 
 	// Target calculation from nBits (Simplified target logic if needed)
 	// For now we will use the difficulty set by the pool.
@@ -90,8 +75,12 @@ func ParseStratumJob(jobID, prevhashHex, coinb1Hex, coinb2Hex, versionHex, nbits
 // This allows different workers to have completely different Merkle Roots,
 // avoiding any nonce collision without requiring range coordination.
 func RebuildHeaderWithExtraNonce2(job *Job, newExtraNonce2Hex string) ([]byte, error) {
+	return buildHeader(job.VersionLE, job.PrevhashLE, job.NtimeLE, job.NbitsLE, job.Coinb1Hex, job.Extranonce1Hex, newExtraNonce2Hex, job.Coinb2Hex, job.MerkleBranchHex)
+}
+
+func buildHeader(versionLE, prevhashLE, ntimeLE, nbitsLE []byte, coinb1Hex, extranonce1Hex, extranonce2Hex, coinb2Hex string, merkleBranchHex []string) ([]byte, error) {
 	// Build Coinbase
-	coinbaseHex := job.Coinb1Hex + job.Extranonce1Hex + newExtraNonce2Hex + job.Coinb2Hex
+	coinbaseHex := coinb1Hex + extranonce1Hex + extranonce2Hex + coinb2Hex
 	coinbaseBytes, err := hex.DecodeString(coinbaseHex)
 	if err != nil {
 		return nil, fmt.Errorf("invalid coinbase hex: %v", err)
@@ -102,12 +91,13 @@ func RebuildHeaderWithExtraNonce2(job *Job, newExtraNonce2Hex string) ([]byte, e
 
 	// Merkle Root
 	merkleRoot := coinbaseHash
-	for _, branchHex := range job.MerkleBranchHex {
+	payload := make([]byte, 64)
+	for _, branchHex := range merkleBranchHex {
 		branchBytes, err := hex.DecodeString(branchHex)
 		if err != nil {
 			return nil, fmt.Errorf("invalid merkle branch hex: %v", err)
 		}
-		payload := make([]byte, 64)
+		// Hash(merkleRoot + branchBytes)
 		copy(payload[0:32], merkleRoot[:])
 		copy(payload[32:64], branchBytes)
 		merkleRoot = SHA256d(payload)
@@ -115,11 +105,11 @@ func RebuildHeaderWithExtraNonce2(job *Job, newExtraNonce2Hex string) ([]byte, e
 
 	// Build the 76-byte Header (without nonce)
 	header := make([]byte, 76)
-	copy(header[0:4], job.VersionLE)
-	copy(header[4:36], job.PrevhashLE)
+	copy(header[0:4], versionLE)
+	copy(header[4:36], prevhashLE)
 	copy(header[36:68], merkleRoot[:])
-	copy(header[68:72], job.NtimeLE)
-	copy(header[72:76], job.NbitsLE)
+	copy(header[68:72], ntimeLE)
+	copy(header[72:76], nbitsLE)
 
 	return header, nil
 }

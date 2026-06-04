@@ -52,19 +52,25 @@ type MempoolClient struct {
 	BaseURL string
 }
 
+var mempoolHttpClient = &http.Client{
+	Timeout: 10 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
+
 // FetchStats retrieves global stats over HTTP from mempool.space.
 func (c *MempoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
 	var stats PoolStatsMsg
 
-	// Create a custom HTTP client with timeout
-	client := &http.Client{Timeout: 10 * time.Second}
-
 	// 1. Fetch Block Height
 	reqHeight, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/blocks/tip/height", nil)
 	if err == nil {
-		if resp, err := client.Do(reqHeight); err == nil {
-			defer resp.Body.Close()
+		if resp, err := mempoolHttpClient.Do(reqHeight); err == nil {
 			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			heightStr := strings.TrimSpace(string(body))
 			if h, err := strconv.Atoi(heightStr); err == nil {
 				stats.BlockHeight = h
@@ -75,13 +81,14 @@ func (c *MempoolClient) FetchStats(ctx context.Context) (PoolStatsMsg, error) {
 	// 2. Fetch Hashrate & Difficulty
 	reqHashrate, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/api/v1/mining/hashrate/3d", nil)
 	if err == nil {
-		if resp, err := client.Do(reqHashrate); err == nil {
-			defer resp.Body.Close()
+		if resp, err := mempoolHttpClient.Do(reqHashrate); err == nil {
 			var hrData struct {
 				CurrentHashrate   float64 `json:"currentHashrate"`
 				CurrentDifficulty float64 `json:"currentDifficulty"`
 			}
-			if err := json.NewDecoder(resp.Body).Decode(&hrData); err == nil {
+			err := json.NewDecoder(resp.Body).Decode(&hrData)
+			resp.Body.Close()
+			if err == nil {
 				stats.GlobalHashRate = hrData.CurrentHashrate
 				stats.NetworkDifficulty = hrData.CurrentDifficulty
 			}
@@ -244,7 +251,7 @@ func (c *StratumPoolClient) connectAndLoop(ctx context.Context) error {
 		line := scanner.Bytes()
 		var notif JSONRPCNotification
 		if err := json.Unmarshal(line, &notif); err == nil && notif.Method != "" {
-			c.handleNotification(notif)
+			c.handleNotification(ctx, notif)
 			continue
 		}
 		var resp JSONRPCResponse
@@ -267,8 +274,7 @@ func (c *StratumPoolClient) sendAndWait(method string, params []interface{}, tim
 		c.mu.Unlock()
 		return JSONRPCResponse{}, fmt.Errorf("not connected")
 	}
-	id := c.reqID + 1
-	c.reqID = id
+	id := c.nextID()
 	
 	respCh := make(chan JSONRPCResponse, 1)
 	if c.pendingRequests == nil {
@@ -333,7 +339,7 @@ func (c *StratumPoolClient) sendAuthorize() error {
 	return c.send("mining.authorize", []interface{}{worker, "x"})
 }
 
-func (c *StratumPoolClient) handleNotification(notif JSONRPCNotification) {
+func (c *StratumPoolClient) handleNotification(ctx context.Context, notif JSONRPCNotification) {
 	if notif.Method == "mining.set_difficulty" {
 		var params []interface{}
 		if err := json.Unmarshal(notif.Params, &params); err == nil && len(params) > 0 {
@@ -374,7 +380,11 @@ func (c *StratumPoolClient) handleNotification(notif JSONRPCNotification) {
 				
 				// Reconnect logic runs in background so it doesn't block the scanner
 				go func() {
-					time.Sleep(time.Duration(waitTime) * time.Second)
+					select {
+					case <-time.After(time.Duration(waitTime) * time.Second):
+					case <-ctx.Done():
+						return
+					}
 					
 					c.mu.Lock()
 					// Update connection targets

@@ -36,7 +36,11 @@ func NewMinerHashState(header []byte) *MinerHashState {
 	
 	// MarshalBinary returns the internal state of the hash
 	// We save it so we can Unmarshal it rapidly in the hot loop
-	m.state, _ = h.(interface{ MarshalBinary() ([]byte, error) }).MarshalBinary()
+	state, err := h.(interface{ MarshalBinary() ([]byte, error) }).MarshalBinary()
+	if err != nil {
+		panic("crypto/sha256: MarshalBinary failed: " + err.Error())
+	}
+	m.state = state
 	
 	// Create a dedicated hasher instance for the hot loop
 	m.hasher = sha256.New()
@@ -46,6 +50,19 @@ func NewMinerHashState(header []byte) *MinerHashState {
 	m.sumBuf2 = make([]byte, 0, 32)
 	
 	return m
+}
+
+// Reset re-initializes the hash state for a new block header, avoiding
+// the allocation of a new MinerHashState object.
+func (m *MinerHashState) Reset(header []byte) {
+	copy(m.payload[:76], header)
+	h := sha256.New()
+	h.Write(m.payload[:64])
+	state, err := h.(interface{ MarshalBinary() ([]byte, error) }).MarshalBinary()
+	if err != nil {
+		panic("crypto/sha256: MarshalBinary failed: " + err.Error())
+	}
+	m.state = state
 }
 
 // HashNonce computes the double SHA-256 hash for a specific nonce using the precomputed midstate.

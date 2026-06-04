@@ -45,6 +45,6 @@ func BenchmarkMinerHashState(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_ = state.HashNonce(nonce)
+		_ = state.HashNonce(nonce + uint32(i))
 	}
 }
