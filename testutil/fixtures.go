@@ -39,7 +39,7 @@ func NewTestStore(t testing.TB) store.Store {
 }
 
 // NewTestConfig returns a basic valid configuration.
-func NewTestConfig(t testing.TB) *config.Config {
+func NewTestConfig(_ testing.TB) *config.Config {
 	return &config.Config{
 		PoolAddress: "public-pool.io",
 		PoolPort:    21496,

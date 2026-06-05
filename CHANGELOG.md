@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optimized Stratum parsing to reduce JSON unmarshaling overhead.
 - Updated all UI components (Dashboard, Settings, Global Stats, Status Bar) to be fully responsive to terminal resizing (`tea.WindowSizeMsg`).
 - Improved navigation in the Settings screen by supporting backwards cycling with `Shift+Tab`.
+- Added visual validation (red borders and text) for malformed inputs in the Settings screen.
 
 ### Fixed
 - Fixed UI uptime rendering bug where uptime failed to properly format days and appeared as `0m`.

@@ -31,7 +31,7 @@ func GetRandomSpaceWordHex(maxBytes int) string {
 	if len(word) > maxBytes {
 		word = word[:maxBytes]
 	} else if len(word) < maxBytes {
-		word = word + strings.Repeat(" ", maxBytes-len(word))
+		word += strings.Repeat(" ", maxBytes-len(word))
 	}
 
 	return hex.EncodeToString([]byte(word))

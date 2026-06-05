@@ -35,6 +35,16 @@ func showToastCmd() tea.Cmd {
 }
 
 // AppModel implements tea.Model for the main application.
+var (
+	toastErrStyle  = lipgloss.NewStyle().Background(lipgloss.Color("#d70000")).Foreground(lipgloss.Color("#ffffff")).Padding(0, 1)
+	toastOkStyle   = lipgloss.NewStyle().Background(lipgloss.Color("#005f00")).Foreground(lipgloss.Color("#ffffff")).Padding(0, 1)
+	helpTitleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffa500")).Bold(true)
+	helpBoxStyle   = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			Padding(1, 2)
+)
+
 type AppModel struct {
 	state          model.AppState
 	throttleCh     chan<- float64
@@ -69,11 +79,11 @@ func NewAppModel(initialState model.AppState, throttleCh chan<- float64, configU
 	chart := timeserieslinechart.New(40, 15)
 	chart.AutoMinY = true
 	chart.AutoMaxY = true
-	chart.XLabelFormatter = func(i int, v float64) string {
+	chart.XLabelFormatter = func(_ int, v float64) string {
 		return time.Unix(int64(v), 0).Local().Format("15:04:05")
 	}
 	// Initial placeholder formatter
-	chart.YLabelFormatter = func(i int, v float64) string {
+	chart.YLabelFormatter = func(_ int, v float64) string {
 		return formatThreeDigits(v)
 	}
 	
@@ -125,12 +135,12 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Notify main loop to save config and restart worker
 			cfgCopy := m.state
 			return m, func() tea.Msg { return SaveConfigMsg{Config: &cfgCopy} }
-		case "up", "down", "left", "right", "shift+tab":
+		case "up", "down", "left", "right":
 			if m.state.Screen == model.ScreenSettings {
 				s := msg.String()
 				
 				// Handle focus switching
-				if s == "up" || s == "left" || s == "shift+tab" {
+				if s == "up" || s == "left" {
 					m.settings.FocusIndex--
 				} else {
 					m.settings.FocusIndex++
@@ -173,6 +183,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "tab":
 			m.state = m.state.NextScreen()
+		case "shift+tab":
+			m.state = m.state.PrevScreen()
 		case "+", "=":
 			m.state = m.state.WithCPUTarget(0.05)
 			if m.throttleCh != nil {
@@ -259,7 +271,7 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		// Set dynamic formatter to apply the current scale
 		currentScale := m.graphScale
-		chart.YLabelFormatter = func(i int, v float64) string {
+		chart.YLabelFormatter = func(_ int, v float64) string {
 			return formatThreeDigits(v / currentScale)
 		}
 		
@@ -353,34 +365,29 @@ func (m AppModel) View() string {
 	
 	// If there's a toast, render it over the content at the bottom
 	if m.toastMessage != "" {
-		var toastStyle lipgloss.Style
+		var style lipgloss.Style
 		if m.toastIsErr {
-			toastStyle = lipgloss.NewStyle().Background(lipgloss.Color("#d70000")).Foreground(lipgloss.Color("#ffffff")).Padding(0, 1)
+			style = toastErrStyle
 		} else {
-			toastStyle = lipgloss.NewStyle().Background(lipgloss.Color("#005f00")).Foreground(lipgloss.Color("#ffffff")).Padding(0, 1)
+			style = toastOkStyle
 		}
 		
-		toastView := toastStyle.Render(m.toastMessage)
+		toastView := style.Render(m.toastMessage)
 		// Place the toast at the bottom right of the content area
 		content = lipgloss.Place(m.width, m.height-1, lipgloss.Right, lipgloss.Bottom, toastView, lipgloss.WithWhitespaceChars(" "), lipgloss.WithWhitespaceForeground(lipgloss.Color("0")))
 	}
 
 	if m.showHelp {
-		helpTitle := lipgloss.NewStyle().Foreground(lipgloss.Color("#ffa500")).Bold(true).Render("KEYBINDINGS")
+		helpTitle := helpTitleStyle.Render("KEYBINDINGS")
 		helpText := `
-q, ctrl+c   Quit
-tab         Next screen
-shift+tab   Previous input (settings)
-+ / -       Increase/Decrease CPU Target
-ctrl+s      Save config (settings)
-?           Toggle this help screen
-`
-		helpBox := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#ffa500")).
-			Padding(1, 3).
-			Background(lipgloss.Color("#1e1e1e")).
-			Render(helpTitle + helpText)
+  ?      : Toggle Help
+  Tab    : Next Screen
+  Shift+Tab: Previous Screen
+  + / =  : CPU Target +5%
+  -      : CPU Target -5%
+  q / ^c : Quit`
+		
+		helpBox := helpBoxStyle.Render(lipgloss.JoinVertical(lipgloss.Left, helpTitle, helpText))
 
 		content = lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, helpBox, lipgloss.WithWhitespaceChars(" "), lipgloss.WithWhitespaceForeground(lipgloss.Color("0")))
 	}

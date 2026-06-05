@@ -73,7 +73,7 @@ func (m *MinerHashState) HashNonce(nonce uint32) [32]byte {
 	binary.LittleEndian.PutUint32(m.payload[76:80], nonce)
 	
 	// Zero-allocation: reuse the pre-allocated hasher and unmarshaler
-	m.unmarshaler.UnmarshalBinary(m.state)
+	_ = m.unmarshaler.UnmarshalBinary(m.state)
 	m.hasher.Write(m.payload[64:80])
 	
 	firstSlice := m.hasher.Sum(m.sumBuf[:0])
@@ -89,7 +89,7 @@ func (m *MinerHashState) HashNonce(nonce uint32) [32]byte {
 
 // HashHeader concatenates the block header and a 32-bit nonce
 // (in little-endian format, standard for Bitcoin) and computes its double SHA-256 hash.
-// DEPRECATED: Use MinerHashState for hot-loop hashing.
+// Deprecated: Use MinerHashState for hot-loop hashing.
 func HashHeader(header []byte, nonce uint32) [32]byte {
 	payload := make([]byte, len(header)+4)
 	copy(payload, header)
