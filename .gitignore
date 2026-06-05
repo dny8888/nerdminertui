@@ -5,8 +5,12 @@ _reversa_sdd/
 .agents/
 NerdMiner/
 bitcoin_solo_miner/
+bitcoin_solo_miner/*
+
 # Go
 bin/
+bin/*
+
 *.exe
 *.exe~
 *.dll

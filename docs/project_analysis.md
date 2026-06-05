@@ -6,29 +6,29 @@
 
 ## Resumo Executivo
 
-| Área | 🔴 Critical | 🟠 High | 🟡 Medium | 🟢 Low | Total |
-|------|:-----------:|:-------:|:---------:|:------:|:-----:|
-| **⛏️ Mining Engine** | 2 | 5 | 7 | 6 | **20** |
-| **🖥️ TUI / UX** | 1 | 9 | 6 | 2 | **18** |
-| **🏗️ Infra / CI / Config** | 2 | 6 | 10 | 7 | **25** |
-| **Total** | **5** | **20** | **23** | **15** | **63** |
+| Área                      | 🔴 Critical | 🟠 High | 🟡 Medium | 🟢 Low  | Total  |
+| ------------------------- | :--------: | :----: | :------: | :----: | :----: |
+| **⛏️ Mining Engine**       |     2      |   5    |    7     |   6    | **20** |
+| **🖥️ TUI / UX**            |     1      |   9    |    6     |   2    | **18** |
+| **🏗️ Infra / CI / Config** |     2      |   6    |    10    |   7    | **25** |
+| **Total**                 |   **5**    | **20** |  **23**  | **15** | **63** |
 
 ---
 
 ## 🏆 Top 10 Quick Wins (Impacto × Esforço)
 
-| # | Finding | Área | Esforço | Impacto |
-|---|---------|------|---------|---------|
-| 1 | Canal de throttle bloqueia TUI ([app.go:164](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L164)) | TUI | 1 linha | 🔴 Freeze da UI |
-| 2 | `Validate()` nunca é chamado ([main.go:35](file:///mnt/bkp/workspace/github/nerdminertui/cmd/tui/main.go#L35)) | Config | 1 linha | 🔴 Config inválida em produção |
-| 3 | `-race` ausente no release workflow ([release.yml:19](file:///mnt/bkp/workspace/github/nerdminertui/.github/workflows/release.yml#L19)) | CI | 1 palavra | 🟠 Race conditions em release |
-| 4 | Erros da pool são silenciados ([app.go:263](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L263)) | UX | ~20 linhas | 🟠 Usuário voa às cegas |
-| 5 | Screen IDs são `0,1,2` em vez de constantes ([app.go:307](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L307)) | Code | 3 linhas | 🟠 Quebra silenciosa |
-| 6 | Focus index usa magic numbers ([app.go:126](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L126)) | Code | 7 constantes | 🟠 Manutenção impossível |
-| 7 | `MeetsTarget` reverte bytes a cada chamada ([target.go:9](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/target.go#L9)) | Perf | ~10 linhas | 🔴 Hot path do miner |
-| 8 | `FormatUptime` perde horas quando dias=0 ([duration.go:23](file:///mnt/bkp/workspace/github/nerdminertui/pkg/format/duration.go#L23)) | Bug | 2 linhas | 🟡 Exibição incorreta |
-| 9 | CPUBar fabrica valor quando actual=0 ([cpubar.go:25](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/components/cpubar.go#L25)) | UX | 3 linhas | 🟡 Dados enganosos |
-| 10 | `-trimpath` ausente no release ([release.yml:59](file:///mnt/bkp/workspace/github/nerdminertui/.github/workflows/release.yml#L59)) | CI | 1 flag | 🟠 Vaza paths do build |
+| #   | Finding                                                                                                                                   | Área   | Esforço      | Impacto                       |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------------ | ----------------------------- |
+| 1   | Canal de throttle bloqueia TUI ([app.go:164](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L164))                      | TUI    | 1 linha      | 🔴 Freeze da UI                |
+| 2   | `Validate()` nunca é chamado ([main.go:35](file:///mnt/bkp/workspace/github/nerdminertui/cmd/tui/main.go#L35))                            | Config | 1 linha      | 🔴 Config inválida em produção |
+| 3   | `-race` ausente no release workflow ([release.yml:19](file:///mnt/bkp/workspace/github/nerdminertui/.github/workflows/release.yml#L19))   | CI     | 1 palavra    | 🟠 Race conditions em release  |
+| 4   | Erros da pool são silenciados ([app.go:263](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L263))                       | UX     | ~20 linhas   | 🟠 Usuário voa às cegas        |
+| 5   | Screen IDs são `0,1,2` em vez de constantes ([app.go:307](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L307))         | Code   | 3 linhas     | 🟠 Quebra silenciosa           |
+| 6   | Focus index usa magic numbers ([app.go:126](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L126))                       | Code   | 7 constantes | 🟠 Manutenção impossível       |
+| 7   | `MeetsTarget` reverte bytes a cada chamada ([target.go:9](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/target.go#L9))         | Perf   | ~10 linhas   | 🔴 Hot path do miner           |
+| 8   | `FormatUptime` perde horas quando dias=0 ([duration.go:23](file:///mnt/bkp/workspace/github/nerdminertui/pkg/format/duration.go#L23))     | Bug    | 2 linhas     | 🟡 Exibição incorreta          |
+| 9   | CPUBar fabrica valor quando actual=0 ([cpubar.go:25](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/components/cpubar.go#L25)) | UX     | 3 linhas     | 🟡 Dados enganosos             |
+| 10  | `-trimpath` ausente no release ([release.yml:59](file:///mnt/bkp/workspace/github/nerdminertui/.github/workflows/release.yml#L59))        | CI     | 1 flag       | 🟠 Vaza paths do build         |
 
 ---
 
@@ -104,26 +104,26 @@ Inconsistente com `send()` que usa `nextID()`. Se `nextID()` ganhar lógica extr
 
 ### 🟡 MEDIUM
 
-| # | Finding | Arquivo | Impacto |
-|---|---------|---------|---------|
-| M1 | Segundo round SHA256 aloca via `sha256.Sum256()` (primeiro é zero-alloc) | [hash.go:61](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/hash.go#L61) | Perf: ~50% das alocações no hot path |
-| M2 | `MarshalBinary` error ignorado — panic se falhar | [hash.go:37](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/hash.go#L37) | Estabilidade |
-| M3 | Merkle branch aloca `make([]byte, 64)` por branch (2 locais duplicados) | [stratum_parser.go:32,110](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/stratum_parser.go#L32) | Perf + DRY violation |
-| M4 | HPS frágil: assume ticker = 1s, não divide por tempo real | [miner.go:170-174](file:///mnt/bkp/workspace/github/nerdminertui/internal/worker/miner.go#L170) | Correção do cálculo |
-| M5 | Sem backpressure no `outCh` para `HashRateMsg` | [miner.go:180-183](file:///mnt/bkp/workspace/github/nerdminertui/internal/worker/miner.go#L180) | Miner control loop trava |
-| M6 | `RebuildHeaderWithExtraNonce2` duplica `ParseStratumJob` (~30 linhas) | [stratum_parser.go:92-125](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/stratum_parser.go#L92) | Manutenção |
-| M7 | `FormatUptime` perde horas quando dias=0 (bug) | [duration.go:23](file:///mnt/bkp/workspace/github/nerdminertui/pkg/format/duration.go#L23) | UI mostra `135m` em vez de `2h 15m` |
+| #   | Finding                                                                  | Arquivo                                                                                                    | Impacto                              |
+| --- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| M1  | Segundo round SHA256 aloca via `sha256.Sum256()` (primeiro é zero-alloc) | [hash.go:61](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/hash.go#L61)                         | Perf: ~50% das alocações no hot path |
+| M2  | `MarshalBinary` error ignorado — panic se falhar                         | [hash.go:37](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/hash.go#L37)                         | Estabilidade                         |
+| M3  | Merkle branch aloca `make([]byte, 64)` por branch (2 locais duplicados)  | [stratum_parser.go:32,110](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/stratum_parser.go#L32) | Perf + DRY violation                 |
+| M4  | HPS frágil: assume ticker = 1s, não divide por tempo real                | [miner.go:170-174](file:///mnt/bkp/workspace/github/nerdminertui/internal/worker/miner.go#L170)            | Correção do cálculo                  |
+| M5  | Sem backpressure no `outCh` para `HashRateMsg`                           | [miner.go:180-183](file:///mnt/bkp/workspace/github/nerdminertui/internal/worker/miner.go#L180)            | Miner control loop trava             |
+| M6  | `RebuildHeaderWithExtraNonce2` duplica `ParseStratumJob` (~30 linhas)    | [stratum_parser.go:92-125](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/stratum_parser.go#L92) | Manutenção                           |
+| M7  | `FormatUptime` perde horas quando dias=0 (bug)                           | [duration.go:23](file:///mnt/bkp/workspace/github/nerdminertui/pkg/format/duration.go#L23)                 | UI mostra `135m` em vez de `2h 15m`  |
 
 ### 🟢 LOW
 
-| # | Finding | Arquivo |
-|---|---------|---------|
-| L1 | `MinerHashState` não tem método `Reset()` — cria garbage a cada job | [hash.go:15-44](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/hash.go#L15) |
-| L2 | `SubscribeResult`/`NotifyParams` types declarados mas nunca usados | [stratum.go:27-31](file:///mnt/bkp/workspace/github/nerdminertui/internal/worker/stratum.go#L27) |
-| L3 | Benchmark usa mesmo nonce em toda iteração (resultados irreais) | [hash_test.go:33,47](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/hash_test.go#L33) |
-| L4 | `SpaceWords` pode colidir entre workers (24 palavras, 8 CPUs = ~74% chance) | [astronomy.go:28](file:///mnt/bkp/workspace/github/nerdminertui/pkg/trivia/astronomy.go#L28) |
-| L5 | `MempoolClient` cria novo `http.Client` por chamada (sem reuso TCP) | [fetcher.go:60](file:///mnt/bkp/workspace/github/nerdminertui/internal/worker/fetcher.go#L60) |
-| L6 | Teste `TestClientsStub` faz HTTP real para mempool.space | [worker_test.go:123](file:///mnt/bkp/workspace/github/nerdminertui/internal/worker/worker_test.go#L123) |
+| #   | Finding                                                                     | Arquivo                                                                                                 |
+| --- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| L1  | `MinerHashState` não tem método `Reset()` — cria garbage a cada job         | [hash.go:15-44](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/hash.go#L15)                   |
+| L2  | `SubscribeResult`/`NotifyParams` types declarados mas nunca usados          | [stratum.go:27-31](file:///mnt/bkp/workspace/github/nerdminertui/internal/worker/stratum.go#L27)        |
+| L3  | Benchmark usa mesmo nonce em toda iteração (resultados irreais)             | [hash_test.go:33,47](file:///mnt/bkp/workspace/github/nerdminertui/pkg/mining/hash_test.go#L33)         |
+| L4  | `SpaceWords` pode colidir entre workers (24 palavras, 8 CPUs = ~74% chance) | [astronomy.go:28](file:///mnt/bkp/workspace/github/nerdminertui/pkg/trivia/astronomy.go#L28)            |
+| L5  | `MempoolClient` cria novo `http.Client` por chamada (sem reuso TCP)         | [fetcher.go:60](file:///mnt/bkp/workspace/github/nerdminertui/internal/worker/fetcher.go#L60)           |
+| L6  | Teste `TestClientsStub` faz HTTP real para mempool.space                    | [worker_test.go:123](file:///mnt/bkp/workspace/github/nerdminertui/internal/worker/worker_test.go#L123) |
 
 ---
 
@@ -204,38 +204,38 @@ Mesma lógica copy-paste. Deveria usar `pkg/format/FormatUptime`.
 
 ### 🟡 MEDIUM
 
-| # | Finding | Arquivo |
-|---|---------|---------|
-| T9 | Larguras de cards hardcoded (24, 76, 66 cols) — overflow em terminais < 84 cols | [globalstats.go:22,61](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/screens/globalstats.go#L22), [settings.go:107](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/screens/settings.go#L107) |
-| T10 | Strings em português hardcoded sem i18n (`"Conectado"`, `"Loteria"`, `"odds hoje"`) | Múltiplos arquivos |
-| T11 | CPUBar fabrica valor `actual = target - 0.01` quando actual=0 | [cpubar.go:25-27](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/components/cpubar.go#L25) |
-| T12 | Header não preenche largura do terminal — linha de `8` caracteres fixa | [header.go:29-35](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/components/header.go#L29) |
-| T13 | Estilos Lipgloss instanciados dentro de `View()` a cada render | [app.go:143](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L143), [globalstats.go:52](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/screens/globalstats.go#L52), [statusbar.go:38](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/components/statusbar.go#L38), [header.go:17](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/components/header.go#L17) |
-| T14 | O(n) array shift + full scan em HashRateHistory a cada segundo | [state.go:60-68](file:///mnt/bkp/workspace/github/nerdminertui/internal/model/state.go#L60), [app.go:206-218](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L206) |
+| #   | Finding                                                                             | Arquivo                                                                                                                                                                                                                                                                                                                                                                                                      |
+| --- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| T9  | Larguras de cards hardcoded (24, 76, 66 cols) — overflow em terminais < 84 cols     | [globalstats.go:22,61](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/screens/globalstats.go#L22), [settings.go:107](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/screens/settings.go#L107)                                                                                                                                                                                          |
+| T10 | Strings em português hardcoded sem i18n (`"Conectado"`, `"Loteria"`, `"odds hoje"`) | Múltiplos arquivos                                                                                                                                                                                                                                                                                                                                                                                           |
+| T11 | CPUBar fabrica valor `actual = target - 0.01` quando actual=0                       | [cpubar.go:25-27](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/components/cpubar.go#L25)                                                                                                                                                                                                                                                                                                        |
+| T12 | Header não preenche largura do terminal — linha de `8` caracteres fixa              | [header.go:29-35](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/components/header.go#L29)                                                                                                                                                                                                                                                                                                        |
+| T13 | Estilos Lipgloss instanciados dentro de `View()` a cada render                      | [app.go:143](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L143), [globalstats.go:52](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/screens/globalstats.go#L52), [statusbar.go:38](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/components/statusbar.go#L38), [header.go:17](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/components/header.go#L17) |
+| T14 | O(n) array shift + full scan em HashRateHistory a cada segundo                      | [state.go:60-68](file:///mnt/bkp/workspace/github/nerdminertui/internal/model/state.go#L60), [app.go:206-218](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/app.go#L206)                                                                                                                                                                                                                         |
 
 ### 🟢 LOW
 
-| # | Finding | Arquivo |
-|---|---------|---------|
+| #   | Finding                                                        | Arquivo                                                                                            |
+| --- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | T15 | Block height mostra `#0` antes dos dados do mempool carregarem | [header.go:14](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/components/header.go#L14) |
-| T16 | Doc comment menciona tela "Clock" que não existe | [screens/doc.go:1-2](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/screens/doc.go#L1) |
+| T16 | Doc comment menciona tela "Clock" que não existe               | [screens/doc.go:1-2](file:///mnt/bkp/workspace/github/nerdminertui/internal/ui/screens/doc.go#L1)  |
 
 ---
 
 ### 🚫 Features Ausentes (TUI)
 
-| # | Feature | Impacto |
-|---|---------|---------|
-| **MF1** | Área de notificação/toast para erros e eventos | 🟠 HIGH — erros são invisíveis |
-| **MF2** | Tela de ajuda / referência de keybindings (`?`) | 🟠 HIGH — discoverability |
-| **MF3** | Feedback de status de reconexão (retries, backoff) | 🟡 MEDIUM |
-| **MF4** | Persistência de estatísticas (store SQLite inicializado mas não usado) | 🟡 MEDIUM |
-| **MF5** | Validação de input nos campos de settings | 🟡 MEDIUM |
-| **MF6** | Suporte a mouse (scroll, click) | 🟢 LOW |
+| #       | Feature                                                                | Impacto                       |
+| ------- | ---------------------------------------------------------------------- | ----------------------------- |
+| **MF1** | Área de notificação/toast para erros e eventos                         | 🟠 HIGH — erros são invisíveis |
+| **MF2** | Tela de ajuda / referência de keybindings (`?`)                        | 🟠 HIGH — discoverability      |
+| **MF3** | Feedback de status de reconexão (retries, backoff)                     | 🟡 MEDIUM                      |
+| **MF4** | Persistência de estatísticas (store SQLite inicializado mas não usado) | 🟡 MEDIUM                      |
+| **MF5** | Validação de input nos campos de settings                              | 🟡 MEDIUM                      |
+| **MF6** | Suporte a mouse (scroll, click)                                        | 🟢 LOW                         |
 
 ---
 
-## 🏗️ Infraestrutura / Config / CI
+## 🏗️ 
 
 ### 🔴 CRITICAL
 
@@ -253,58 +253,58 @@ Mesma lógica copy-paste. Deveria usar `pkg/format/FormatUptime`.
 
 ### 🟠 HIGH
 
-| # | Finding | Arquivo |
-|---|---------|---------|
-| I3 | Flag `--config` é aceita mas silenciosamente ignorada | [main.go:24,34](file:///mnt/bkp/workspace/github/nerdminertui/cmd/tui/main.go#L24) |
-| I4 | Permissões inseguras: config dir `0755`, debug.log `0666` | [config.go:105](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/config.go#L105), [main.go:127](file:///mnt/bkp/workspace/github/nerdminertui/cmd/tui/main.go#L127) |
-| I5 | Sem versionamento de migration — mudanças no schema quebram DBs existentes | [migrations.go:11-14](file:///mnt/bkp/workspace/github/nerdminertui/internal/store/migrations.go#L11) |
-| I6 | Release workflow roda testes sem `-race` | [release.yml:19](file:///mnt/bkp/workspace/github/nerdminertui/.github/workflows/release.yml#L19) |
-| I7 | Release workflow sem `-trimpath` — vaza paths do build | [release.yml:59](file:///mnt/bkp/workspace/github/nerdminertui/.github/workflows/release.yml#L59) |
-| I8 | SQLite store inicializado mas nunca utilizado (`_ = st`) | [main.go:54-69](file:///mnt/bkp/workspace/github/nerdminertui/cmd/tui/main.go#L54) |
+| #   | Finding                                                                    | Arquivo                                                                                                                                                                          |
+| --- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I3  | Flag `--config` é aceita mas silenciosamente ignorada                      | [main.go:24,34](file:///mnt/bkp/workspace/github/nerdminertui/cmd/tui/main.go#L24)                                                                                               |
+| I4  | Permissões inseguras: config dir `0755`, debug.log `0666`                  | [config.go:105](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/config.go#L105), [main.go:127](file:///mnt/bkp/workspace/github/nerdminertui/cmd/tui/main.go#L127) |
+| I5  | Sem versionamento de migration — mudanças no schema quebram DBs existentes | [migrations.go:11-14](file:///mnt/bkp/workspace/github/nerdminertui/internal/store/migrations.go#L11)                                                                            |
+| I6  | Release workflow roda testes sem `-race`                                   | [release.yml:19](file:///mnt/bkp/workspace/github/nerdminertui/.github/workflows/release.yml#L19)                                                                                |
+| I7  | Release workflow sem `-trimpath` — vaza paths do build                     | [release.yml:59](file:///mnt/bkp/workspace/github/nerdminertui/.github/workflows/release.yml#L59)                                                                                |
+| I8  | SQLite store inicializado mas nunca utilizado (`_ = st`)                   | [main.go:54-69](file:///mnt/bkp/workspace/github/nerdminertui/cmd/tui/main.go#L54)                                                                                               |
 
 ---
 
 ### 🟡 MEDIUM
 
-| # | Finding | Arquivo |
-|---|---------|---------|
-| I9 | Testes usam `os.Setenv` em vez de `t.Setenv` — env vars vazam | [config_test.go:82-91](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/config_test.go#L82) |
-| I10 | Zero `t.Parallel()` no projeto — CI desnecessariamente lenta | Todos `*_test.go` |
-| I11 | `ExpandPath("~")` sem `/` retorna `"~"` literal | [paths.go:10](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/paths.go#L10) |
-| I12 | Sem validação de porta no config (aceita -1, 99999) | [config.go:16](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/config.go#L16) |
-| I13 | `ConnectionStatus` usa strings mágicas em PT (`"Conectado"`) — deveria ser enum | [state.go:42](file:///mnt/bkp/workspace/github/nerdminertui/internal/model/state.go#L42) |
-| I14 | Sem `govulncheck` no CI | [ci.yml](file:///mnt/bkp/workspace/github/nerdminertui/.github/workflows/ci.yml) |
-| I15 | Testes de store usam `cache=shared` — estado compartilhado entre tests | [store_test.go:16](file:///mnt/bkp/workspace/github/nerdminertui/internal/store/store_test.go#L16) |
-| I16 | `Save()` ignora erros de `ExpandPath` e `MkdirAll` | [config.go:104-105](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/config.go#L104) |
-| I17 | `QueryHashRateHistory` dupla alocação — reverse in-place | [store.go:73-76](file:///mnt/bkp/workspace/github/nerdminertui/internal/store/store.go#L73) |
-| I18 | Sem validação de `pool_address` (aceita string vazia) | [config.go:15](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/config.go#L15) |
+| #   | Finding                                                                         | Arquivo                                                                                                  |
+| --- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| I9  | Testes usam `os.Setenv` em vez de `t.Setenv` — env vars vazam                   | [config_test.go:82-91](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/config_test.go#L82) |
+| I10 | Zero `t.Parallel()` no projeto — CI desnecessariamente lenta                    | Todos `*_test.go`                                                                                        |
+| I11 | `ExpandPath("~")` sem `/` retorna `"~"` literal                                 | [paths.go:10](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/paths.go#L10)                |
+| I12 | Sem validação de porta no config (aceita -1, 99999)                             | [config.go:16](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/config.go#L16)              |
+| I13 | `ConnectionStatus` usa strings mágicas em PT (`"Conectado"`) — deveria ser enum | [state.go:42](file:///mnt/bkp/workspace/github/nerdminertui/internal/model/state.go#L42)                 |
+| I14 | Sem `govulncheck` no CI                                                         | [ci.yml](file:///mnt/bkp/workspace/github/nerdminertui/.github/workflows/ci.yml)                         |
+| I15 | Testes de store usam `cache=shared` — estado compartilhado entre tests          | [store_test.go:16](file:///mnt/bkp/workspace/github/nerdminertui/internal/store/store_test.go#L16)       |
+| I16 | `Save()` ignora erros de `ExpandPath` e `MkdirAll`                              | [config.go:104-105](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/config.go#L104)        |
+| I17 | `QueryHashRateHistory` dupla alocação — reverse in-place                        | [store.go:73-76](file:///mnt/bkp/workspace/github/nerdminertui/internal/store/store.go#L73)              |
+| I18 | Sem validação de `pool_address` (aceita string vazia)                           | [config.go:15](file:///mnt/bkp/workspace/github/nerdminertui/internal/config/config.go#L15)              |
 
 ### 🟢 LOW
 
-| # | Finding | Arquivo |
-|---|---------|---------|
-| I19 | Makefile não injeta version via `-X main.version=...` em build local | [Makefile:10](file:///mnt/bkp/workspace/github/nerdminertui/Makefile#L10) |
-| I20 | `.golangci.yml` sem lista explícita de linters — depende de defaults | [.golangci.yml](file:///mnt/bkp/workspace/github/nerdminertui/.golangci.yml) |
-| I21 | `testutil/` é muito fino — falta `NewTestStore(t)`, `NewTestConfig(t)` | [testutil/fixtures.go](file:///mnt/bkp/workspace/github/nerdminertui/testutil/fixtures.go) |
-| I22 | README mínimo — falta screenshot, descrição, config reference, badges | [README.md](file:///mnt/bkp/workspace/github/nerdminertui/README.md) |
-| I23 | Comment `AppState` diz "100% thread safe" mas `app.go` faz mutações diretas | [state.go:29-31](file:///mnt/bkp/workspace/github/nerdminertui/internal/model/state.go#L29) |
-| I24 | `gocyclo` min-complexity = 25 (padrão industria é 10-15) | [.golangci.yml:3](file:///mnt/bkp/workspace/github/nerdminertui/.golangci.yml#L3) |
-| I25 | `SchemaDDL` exportado desnecessariamente (internal package) | [migrations.go:9](file:///mnt/bkp/workspace/github/nerdminertui/internal/store/migrations.go#L9) |
+| #   | Finding                                                                     | Arquivo                                                                                          |
+| --- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| I19 | Makefile não injeta version via `-X main.version=...` em build local        | [Makefile:10](file:///mnt/bkp/workspace/github/nerdminertui/Makefile#L10)                        |
+| I20 | `.golangci.yml` sem lista explícita de linters — depende de defaults        | [.golangci.yml](file:///mnt/bkp/workspace/github/nerdminertui/.golangci.yml)                     |
+| I21 | `testutil/` é muito fino — falta `NewTestStore(t)`, `NewTestConfig(t)`      | [testutil/fixtures.go](file:///mnt/bkp/workspace/github/nerdminertui/testutil/fixtures.go)       |
+| I22 | README mínimo — falta screenshot, descrição, config reference, badges       | [README.md](file:///mnt/bkp/workspace/github/nerdminertui/README.md)                             |
+| I23 | Comment `AppState` diz "100% thread safe" mas `app.go` faz mutações diretas | [state.go:29-31](file:///mnt/bkp/workspace/github/nerdminertui/internal/model/state.go#L29)      |
+| I24 | `gocyclo` min-complexity = 25 (padrão industria é 10-15)                    | [.golangci.yml:3](file:///mnt/bkp/workspace/github/nerdminertui/.golangci.yml#L3)                |
+| I25 | `SchemaDDL` exportado desnecessariamente (internal package)                 | [migrations.go:9](file:///mnt/bkp/workspace/github/nerdminertui/internal/store/migrations.go#L9) |
 
 ---
 
 ## 📊 Cobertura de Testes
 
-| Pacote | Arquivos | Testes | Avaliação |
-|--------|----------|--------|-----------|
-| `pkg/mining` | 4 source | 3 test + benchmarks | ✅ **Boa** |
-| `internal/worker` | 5 source | 1 test (13 cases) | ✅ **Boa** |
-| `internal/ui` | 7 source | 1 test (screens) | ⚠️ **Parcial** — `app.go` (320 linhas) tem **zero testes** |
-| `internal/config` | 3 source | 1 test | ⚠️ **Parcial** — `Save()` não testado |
-| `internal/store` | 3 source | 1 test | ✅ **Boa** — inclui concurrency test |
-| `internal/model` | 1 source | 1 test | ✅ **Boa** — imutabilidade testada |
-| `pkg/format` | 3 source | 1 test | ⚠️ **Parcial** — bug M7 não coberto |
-| `pkg/trivia` | 1 source | 1 test | ✅ **Adequada** |
+| Pacote            | Arquivos | Testes              | Avaliação                                                 |
+| ----------------- | -------- | ------------------- | --------------------------------------------------------- |
+| `pkg/mining`      | 4 source | 3 test + benchmarks | ✅ **Boa**                                                 |
+| `internal/worker` | 5 source | 1 test (13 cases)   | ✅ **Boa**                                                 |
+| `internal/ui`     | 7 source | 1 test (screens)    | ⚠️ **Parcial** — `app.go` (320 linhas) tem **zero testes** |
+| `internal/config` | 3 source | 1 test              | ⚠️ **Parcial** — `Save()` não testado                      |
+| `internal/store`  | 3 source | 1 test              | ✅ **Boa** — inclui concurrency test                       |
+| `internal/model`  | 1 source | 1 test              | ✅ **Boa** — imutabilidade testada                         |
+| `pkg/format`      | 3 source | 1 test              | ⚠️ **Parcial** — bug M7 não coberto                        |
+| `pkg/trivia`      | 1 source | 1 test              | ✅ **Adequada**                                            |
 
 ### Gaps Críticos de Teste
 
