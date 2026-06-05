@@ -60,6 +60,8 @@ func (w *MinerWorker) Run(ctx context.Context) {
 	var totalHashes atomic.Uint64
 	var totalWorkTime atomic.Int64
 	
+	bestHashes := make([]atomic.Pointer[[32]byte], numCPU)
+	
 	var wg sync.WaitGroup
 	wg.Add(numCPU)
 	
@@ -73,6 +75,11 @@ func (w *MinerWorker) Run(ctx context.Context) {
 			var hashState *mining.MinerHashState
 			var currentNonce uint32
 			var currentSpaceWord string
+			
+			var localBestHash [32]byte
+			for j := 0; j < 32; j++ {
+				localBestHash[j] = 255
+			}
 			
 			for {
 				select {
@@ -122,6 +129,14 @@ func (w *MinerWorker) Run(ctx context.Context) {
 				// Perform batch
 				for b := 0; b < BatchSize; b++ {
 					hash := hashState.HashNonce(currentNonce)
+					
+					// Track the best hash found
+					if mining.HashIsLessThan(hash, localBestHash) {
+						localBestHash = hash
+						hCopy := hash
+						bestHashes[workerID].Store(&hCopy)
+					}
+
 					if mining.MeetsTarget(hash, lj.Target) {
 						log.Printf("[Miner] Found valid share! JobID=%s, Word=%s, Nonce=%d, Hash=%x", lj.JobID, currentSpaceWord, currentNonce, hash)
 						go func(sw string, n uint32, h [32]byte) {
@@ -165,6 +180,12 @@ func (w *MinerWorker) Run(ctx context.Context) {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
+	var globalBestHash [32]byte
+	for i := 0; i < 32; i++ {
+		globalBestHash[i] = 255
+	}
+	var currentBestDiff float64
+
 	lastTick := time.Now()
 	for {
 		select {
@@ -190,8 +211,20 @@ func (w *MinerWorker) Run(ctx context.Context) {
 					cpuActual = 1.0
 				}
 				
+				var foundBetter bool
+				for i := 0; i < numCPU; i++ {
+					ptr := bestHashes[i].Load()
+					if ptr != nil && mining.HashIsLessThan(*ptr, globalBestHash) {
+						globalBestHash = *ptr
+						foundBetter = true
+					}
+				}
+				if foundBetter {
+					currentBestDiff = mining.DifficultyFromHash(globalBestHash)
+				}
+				
 				select {
-				case w.outCh <- HashRateMsg{HPS: hps, CPUActual: cpuActual}:
+				case w.outCh <- HashRateMsg{HPS: hps, CPUActual: cpuActual, BestDifficulty: currentBestDiff}:
 				case <-ctx.Done():
 				default:
 				}

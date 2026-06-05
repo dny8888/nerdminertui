@@ -229,6 +229,9 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.state = m.state.WithHashRate(hps)
 		m.state.CPUActual = msg.CPUActual
+		if msg.BestDifficulty > m.state.BestDifficulty {
+			m.state.BestDifficulty = msg.BestDifficulty
+		}
 		m.hashChart.Push(timeserieslinechart.TimePoint{Time: now, Value: hps})
 		m.hashChart.SetTimeRange(now.Add(-30*time.Second), now)
 		m.hashChart.SetViewTimeRange(now.Add(-30*time.Second), now)

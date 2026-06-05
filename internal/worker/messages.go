@@ -2,8 +2,9 @@ package worker
 
 // HashRateMsg is emitted by the MinerWorker to report current mining speed and CPU usage.
 type HashRateMsg struct {
-	HPS       float64
-	CPUActual float64
+	HPS            float64
+	CPUActual      float64
+	BestDifficulty float64
 }
 
 // ShareFoundMsg is emitted when a valid share is found and processed by the pool client.

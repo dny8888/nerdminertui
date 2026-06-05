@@ -109,3 +109,27 @@ func TargetFromDifficulty(diff float64) [32]byte {
 	
 	return targetBytes
 }
+
+// HashIsLessThan compares two Little-Endian hashes.
+// It returns true if h1 is strictly less than h2 (meaning h1 has a higher difficulty).
+func HashIsLessThan(h1, h2 [32]byte) bool {
+	h1Top := binary.LittleEndian.Uint64(h1[24:32])
+	h2Top := binary.LittleEndian.Uint64(h2[24:32])
+	
+	if h1Top < h2Top {
+		return true
+	}
+	if h1Top > h2Top {
+		return false
+	}
+	
+	for i := 23; i >= 0; i-- {
+		if h1[i] < h2[i] {
+			return true
+		}
+		if h1[i] > h2[i] {
+			return false
+		}
+	}
+	return false
+}
